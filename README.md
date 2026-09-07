@@ -27,8 +27,8 @@ curl -fsSL https://titanconnect.titannetwork.com/api/install-claude | bash
 
 Plugins install in Claude Code and Cowork. On Claude.ai and other MCP clients
 you connect the server itself instead, and add the skill separately. The
-[setup guides](https://titanconnect.titannetwork.com/docs) cover both steps per
-client.
+[setup guides](https://ai.titannetwork.com/docs/connect-a-client) cover both
+steps per client.
 
 ## What you get
 
@@ -40,15 +40,6 @@ rather than general knowledge.
 
 Ask things like "how are my campaigns doing", "show my top-selling ASINs", or
 "optimize my PPC spend".
-
-## Renamed from titan-connect
-
-This plugin was called `titan-connect` until September 2026. If you installed it
-before then, `/plugin install titan-connect@titan-network` no longer resolves
-and the old install stops loading. Reinstall with the commands above.
-
-The server URL has not changed, but Claude Code treats `titan-ai` as a new
-server, so you sign in again on first use.
 
 ## These tools spend real money
 
@@ -63,11 +54,25 @@ MIT, see [LICENSE](LICENSE).
 The licence covers this repository's contents. It does not grant any right to
 the Titan Network or Titan AI names, logos, or other trademarks.
 
-## Source of truth
+## About Titan AI
 
-This repository is a mirror. The plugin is developed in the Titan monorepo at
-`apps/titan-connect/claude-code-plugin/`, and every file here is copied from
-there byte for byte. Send changes to the monorepo, not to this repository.
+Titan AI is the agentic platform Amazon sellers run their business on: seller
+data, PPC analytics and campaign actions, a knowledge base built from what has
+actually worked for Titan Network members, and agents that act on all of it.
+Most of that work happens in Titan AI itself, at
+[ai.titannetwork.com](https://ai.titannetwork.com).
 
-Documentation for members lives at
-[titannetwork.com docs](https://titanconnect.titannetwork.com/docs/claude-code).
+This plugin is one way in. It brings the same tools and the same judgement into
+Claude's ecosystem, so you can stay in Claude Code or Cowork and still work
+against your live account.
+
+The plugin is published from Titan AI's own systems, so it tracks the platform
+and does not take changes here. To request one, or to report a problem, open an
+issue.
+
+## Docs
+
+* [Start here](https://ai.titannetwork.com/docs/overview)
+* [Claude Code setup](https://ai.titannetwork.com/docs/claude-code)
+* [Cowork setup](https://ai.titannetwork.com/docs/cowork)
+* [Other MCP clients](https://ai.titannetwork.com/docs/connect-a-client)

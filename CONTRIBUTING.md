@@ -1,15 +1,12 @@
 # Contributing
 
-This repository is a read-only mirror.
+This repository is published from Titan AI's own systems and is not edited
+directly. Anything committed here by hand is replaced on the next release, so a
+pull request against this repository cannot be merged.
 
-The plugin is developed in the Titan monorepo at
-`apps/titan-connect/claude-code-plugin/`. Every file here, apart from this one,
-`README.md` and `.github/`, is copied from there byte for byte and is
-overwritten on the next sync. A change made directly here is lost.
+To request a change to the plugin or the skill, or to report a problem, open an
+issue. Titan Network members can also raise it through the usual support
+channel, which reaches the same team faster.
 
-To change the plugin or the skill, open a pull request against the monorepo. The
-identifier-parity gate there (`scripts/check-identifier-parity.test.mjs`) pins
-the plugin key, the `mcpServers` key, the hostname and the skill name across
-every file that carries them, so a partial rename fails CI rather than shipping.
-
-To report a problem without monorepo access, open an issue here.
+If the issue is with your account data rather than the plugin itself, start at
+the [docs](https://ai.titannetwork.com/docs/overview).
