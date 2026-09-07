@@ -45,6 +45,13 @@ Some tools change a live Amazon Ads account. Claude Code prompts you before each
 one. Nothing rolls back automatically, so read each proposal, and keep the Titan
 action tools out of any always-allow list.
 
+## Licence
+
+MIT, see [LICENSE](LICENSE).
+
+The licence covers this repository's contents. It does not grant any right to
+the Titan Network or Titan AI names, logos, or other trademarks.
+
 ## Source of truth
 
 This repository is a mirror. The plugin is developed in the Titan monorepo at
