@@ -1,8 +1,8 @@
 # Titan AI MCP plugin
 
 Amazon seller tools for AI agents, from Titan Network. Your PPC data, listings,
-alerts, and the Titan knowledge base, available in Claude Code and Claude
-Cowork.
+alerts, and the Titan knowledge base, available in Claude.ai, Claude Code and
+Claude Cowork.
 
 Requires a Titan Tools account. Sign-in happens in your browser on first
 connect, over OAuth. There is no API key to copy or paste.
@@ -14,6 +14,9 @@ connect, over OAuth. There is no API key to copy or paste.
 /plugin install titan-ai@titan-network
 ```
 
+On Claude.ai, go to Customize, then Plugins, then Add marketplace, and point it
+at this repository.
+
 In Cowork, install it from the plugin library.
 
 Or, for Claude Code, use the one-command installer, which does the same thing
@@ -23,10 +26,10 @@ and signs you in:
 curl -fsSL https://titanconnect.titannetwork.com/api/install-claude | bash
 ```
 
-## Using Claude.ai or another MCP client
+## Using another MCP client
 
-Plugins install in Claude Code and Cowork. On Claude.ai and other MCP clients
-you connect the server itself instead, and add the skill separately. The
+If your client does not take plugins, connect the Titan AI MCP server directly
+and add the skill separately. The
 [setup guides](https://ai.titannetwork.com/docs/connect-a-client) cover both
 steps per client.
 
