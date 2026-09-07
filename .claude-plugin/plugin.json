@@ -1,0 +1,8 @@
+{
+  "name": "titan-ai",
+  "version": "2.0.0",
+  "description": "Amazon seller tools for AI agents via Titan Network — PPC, listings, lessons, frameworks",
+  "author": { "name": "Titan Network", "url": "https://titannetwork.com" },
+  "homepage": "https://titanconnect.titannetwork.com",
+  "keywords": ["amazon", "ppc", "seller", "titan-network", "mcp"]
+}

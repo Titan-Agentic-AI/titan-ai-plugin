@@ -1,0 +1,16 @@
+{
+  "name": "titan-network",
+  "owner": {
+    "name": "Titan Network",
+    "url": "https://titannetwork.com"
+  },
+  "description": "Amazon seller intelligence for AI agents. PPC, listings, lessons, and frameworks via Titan AI MCP.",
+  "plugins": [
+    {
+      "name": "titan-ai",
+      "description": "Amazon seller tools via Titan Network. PPC analytics, listings, alerts, lessons, and frameworks. Connects over OAuth, no API key.",
+      "version": "2.0.0",
+      "source": "./"
+    }
+  ]
+}

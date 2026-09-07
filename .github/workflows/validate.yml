@@ -1,0 +1,27 @@
+name: Validate plugin
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      # Identifiers and required files. Fails on a hand-edit that would break
+      # an already-installed member, which is the failure worth catching here.
+      - name: Structural validation
+        run: node scripts/validate.mjs
+
+      # Anthropic's own manifest check, as the second opinion.
+      - name: Claude Code plugin validate
+        run: |
+          npm install -g @anthropic-ai/claude-code
+          claude plugin validate .

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "titan-ai": {
+      "type": "http",
+      "url": "${TITAN_CONNECT_URL:-https://titanconnect.titannetwork.com}/api/mcp"
+    }
+  }
+}
