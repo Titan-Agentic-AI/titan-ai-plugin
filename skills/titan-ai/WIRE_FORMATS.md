@@ -880,11 +880,12 @@ SINGLE-ITEM (NOT partial-success batches), REVERSIBLE (add ↔ remove), no dry-r
 
 ## Keyword segments / comments / families reads (`/v1/krt/*`, `/v1/tools/relevancy/*`)
 
-Reads — no approval. `sellerId` injected; segments need `marketplace` (asin-scoped, US/DE/UK/CA); comments are by `keywordRankTrackerId` (no marketplace); families/members need `marketplace` + `datasetId`.
+Reads — no approval. `sellerId` injected; segments are asin-scoped and marketplace-scoped (US/DE/UK/CA), and take an OPTIONAL `marketplaces` array of exactly one storefront — omit it and the read resolves the marketplace from the session (an explicit filter always wins for that one call); comments are by `keywordRankTrackerId` (no marketplace); families/members need `marketplace` + `datasetId`.
 
 ```jsonc
 // get_keyword_segments  (POST /v1/krt/segments/list)  -> { "segments": [...] }
-{ "asin": "B0D1NMX2BS" }
+{ "asin": "B0D1NMX2BS" }                              // marketplace from the session
+{ "asin": "B0D1NMX2BS", "marketplaces": ["Amazon.ca"] }  // or steer this one call (max 1)
 //  -> { "segments": [ { "segmentId": 789, "name": "High intent",
 //         "type": "CUSTOM_SEGMENT",            // IMPORTED_SET|CUSTOM_SEGMENT|MANUALLY_ADDED|MASTER_SET
 //         "keywordRankTrackerIds": [1029102, 1029236],   // NO itemCount upstream
