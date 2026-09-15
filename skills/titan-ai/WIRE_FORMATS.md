@@ -920,3 +920,42 @@ Reads — no approval. `sellerId` injected; segments are asin-scoped and marketp
 - **Members route is PLURAL** `…/keywords/families/members` — the announced singular `…/family/members` 404s.
 - **`families.total` = keyword count, NOT family count** — it equals `get_keyword_relevancy`'s `total`.
 - **`ppcCheck` is opt-in** (default off): adds `inPpc` / `adTypes` (SP/SB/SD) / `matchTypes` (EXACT/PHRASE/BROAD). The dataset-list competitors also gain `marketDepth` / `rankedKeywords`.
+
+
+## Compass writes (`/v1/compass/*`)
+
+Distinct from the Amazon Ads writes: these change Titan Tools' Compass inventory planning, have **NO dry-run** and **recompute nothing**. `sellerId` is injected from the active seller; there is no `marketplace` field.
+
+```jsonc
+// propose_save_compass_suppliers  (1-200; ATOMIC, one invalid row writes nothing)
+{ "suppliers": [
+    { "supplierName": "Anhui Fabrics",           // no supplierId -> CREATE (name required)
+      "leadTime": 30, "freightTime": 35, "bufferTime": 7,   // whole days
+      "depositPayment": 30, "balance": 70,       // percentages; the three may not exceed 100
+      "balanceTerms": 45 },                      // whole days after arrival
+    { "supplierId": 412, "leadTime": 25 }        // supplierId -> UPDATE, only the fields sent
+] }
+//  -> { "suppliers": [ { "index": 0, "action": "created", "supplier": { "supplierId": 431, ... } },
+//                      { "index": 1, "action": "updated", "supplier": { ... } } ],
+//       "summary": { ... }, "recalculationNotice": "..." }
+
+// propose_delete_compass_supplier  (ONE supplier, no restore)
+{ "supplierId": 412 }
+//  -> { "supplierId": 412, "deleted": true, "linkedProducts": ..., "recalculationNotice": "..." }
+
+// propose_update_compass_product_configs  (1-200; PARTIAL SUCCESS)
+{ "products": [
+    { "salesChannel": "Amazon.com", "sku": "CANDLE-VOTIVE-24",   // exactly as on a get_compass_product_configs row
+      "supplierId": 431,                                          // relink only, there is no null
+      "shippingPaid": "on_arrival",                               // at_booking | on_arrival
+      "demandPlan": { "moq": 500, "ctnSize": 48, "lowPriceTierMoq": null } }   // null clears one setting
+] }
+//  -> { "results": [ { "index": 0, "salesChannel": "Amazon.com", "sku": "CANDLE-VOTIVE-24",
+//                      "status": "SUCCESS", "message": "...", "concurrencyConflict": false, "product": { ... } } ],
+//       "summary": { "total": 1, "succeeded": 1, "failed": 0, "concurrencyConflicts": 0 },
+//       "allFailed": false, "recalculationNotice": "...", "configStatusCaveat": "..." }
+```
+
+- **Read every entry.** `status` is `SUCCESS` or `ERROR` per entry; `concurrencyConflict: true` was NOT applied (re-read, resend); `NO_RESULT` MAY have applied (re-read before resending). No entry succeeding fails the call with `WRITE_ALL_ITEMS_FAILED`.
+- **`balanceTerms`** is sent as whole days but read back from `get_compass_suppliers` as a numeric STRING.
+- **Delete does not unlink.** SKUs linked to a deleted supplier keep its last terms and still show its `supplierId`.

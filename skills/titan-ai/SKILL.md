@@ -170,6 +170,25 @@ Manage what the seller tracks in the **Keyword Rank Tracker** (NOT Amazon Ads). 
 | `propose_edit_keyword_comment` | Edit a comment's TEXT (by `commentId`). Text only — no date. → `{comment}`. 404 on a foreign/unknown id. |
 | `propose_remove_keyword_comment` | Delete a comment by `commentId`. Reverses add. → `{success}`. 404 on a foreign/unknown id. |
 
+### Compass (inventory planning, requires active seller)
+
+Titan Tools' own supplier book and per-SKU ordering settings. Compass is part of Titan, never an external system or a connector. Present only while Compass is enabled on the server.
+
+| Tool | Purpose |
+|------|---------|
+| `get_compass_suppliers` | The store's supplier book: `supplierId`, `supplierName`, `leadTime` / `freightTime` / `bufferTime` / `totalLandedTime` in days, `depositPayment` / `onShippingPayment` / `balance` percentages, `balanceTerms` (days after arrival, a numeric string). An empty `items` list means no suppliers yet; an error envelope is NOT that. |
+| `get_compass_product_configs` | One row per SKU per sales channel: `configStatus` (unconfigured / incomplete / complete), the linked `supplierId` and its terms, `shippingPaid`, and `demandPlan { minStockDays, ctnSize, targetDaysOfStock, moq, lowPriceTierMoq }`. Filter by `marketplaces`, `skus`, `asins`, `brands`, `supplierId`, `configStatus`. `configStatus` does not change until the user recomputes in Compass. |
+
+### Actions — Compass Writes (NOT Amazon Ads)
+
+Change Compass, not the Amazon account. Same host approval pill as every write. **No dry-run, and nothing is recalculated**: after a successful write, tell the user Compass has NOT recalculated the forecast, the Demand Plan or the Purchase Orders yet, and that they should open Compass and accept the recompute prompt. Authorization is handled server-side. See ACTIONS.md "Compass writes".
+
+| Tool | Purpose |
+|------|---------|
+| `propose_save_compass_suppliers` | Create (omit `supplierId`) or update 1-200 suppliers. ATOMIC: one invalid row writes nothing. Updating a supplier changes every SKU linked to it. |
+| `propose_delete_compass_supplier` | Delete ONE supplier by `supplierId`. No restore. Linked SKUs keep its last terms and stay linked to the deleted id. |
+| `propose_update_compass_product_configs` | Change `supplierId`, `shippingPaid` and `demandPlan` for 1-200 SKUs (`salesChannel` + `sku`). A SKU can be relinked, never unlinked. Partial success: read every `results[i].status`. |
+
 ### Account Management (OAuth-authenticated MCP only — invisible to `tk_*` keys)
 
 | Tool | Purpose |

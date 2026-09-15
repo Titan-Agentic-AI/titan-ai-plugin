@@ -169,6 +169,19 @@ Three writes manage member **comments** (notes) on a tracked keyword (`/v1/krt/c
 
 Result presentation: natural prose — e.g. "Added your note to that keyword." Never surface the raw envelope, commentId, or correlationId.
 
+## Compass writes (NOT Amazon Ads)
+
+Three writes change the seller's **Compass** inventory planning in Titan Tools (`/v1/compass/*`): `propose_save_compass_suppliers`, `propose_delete_compass_supplier`, `propose_update_compass_product_configs`. Compass is part of Titan, never an external system or a connector: when the user mentions Compass, use these tools and the two Compass reads, not a custom connector. They appear only while Compass is enabled on the server; if they are not in your tool list, Compass is not available to this account.
+
+- **No dry-run.** Each executes the moment the host approves, in every environment. Confirm the exact change with the user first.
+- **Nothing is recalculated.** A successful write does NOT recompute the forecast, the Demand Plan or the Purchase Orders. Every success carries `recalculationNotice`: tell the user, in plain words, that Compass has NOT recalculated those yet and that they should open Compass and accept the recompute prompt before relying on them.
+- **`propose_save_compass_suppliers`** creates (omit `supplierId`; `supplierName` is then required) or updates (send a `supplierId` from `get_compass_suppliers`) 1-200 suppliers, changing only the fields sent. ATOMIC: one invalid row refuses the whole call and nothing is written. Updating a supplier also changes the terms on EVERY SKU linked to it, so list those SKUs first (`get_compass_product_configs` with that `supplierId`). Returns `{ suppliers: [{ index, action: created | updated, supplier }], summary, recalculationNotice }`.
+- **`propose_delete_compass_supplier`** deletes ONE supplier by `supplierId`. There is NO restore: creating it again gives a new `supplierId`. Linked SKUs are NOT unlinked; they keep its last terms and still show its `supplierId`, so list them first and offer to relink them. An unknown or already-deleted id fails with `COMPASS_NOT_FOUND` and deletes nothing.
+- **`propose_update_compass_product_configs`** changes 1-200 SKU entries, each named by `salesChannel` + `sku` exactly as on a `get_compass_product_configs` row: `supplierId`, `shippingPaid` (`at_booking` | `on_arrival`), and `demandPlan` (`minStockDays`, `ctnSize`, `targetDaysOfStock`, `moq`, `lowPriceTierMoq`; `null` clears one). A SKU can be relinked but NEVER unlinked, and its config cannot be deleted. PARTIAL SUCCESS inside one successful call: read `results[i].status` for EVERY entry and never say an entry changed unless it is `SUCCESS`. `concurrencyConflict: true` means NOT applied (re-read that SKU, then resend it); `NO_RESULT` means it MAY have applied (re-read before resending). If no entry succeeded, the call fails with `WRITE_ALL_ITEMS_FAILED`.
+- **Auth is handled server-side**, the same user-OAuth-first then server-credential fallback as the KRT writes. `sellerId` is injected from the active seller; there is no `marketplace` field.
+
+Result presentation: natural prose, e.g. "Set the MOQ for that SKU on Amazon.com to 500. Compass has not recalculated your forecast, Demand Plan or Purchase Orders yet, so open Compass and accept the recompute prompt before relying on them." Never surface the raw envelope, `supplierId`, or `correlationId`.
+
 ## Verified status (post-audit, 2026-05-05 — adds 9 negative-keyword UPDATE + negative-target CRUD tools)
 
 | Tool | Result | Notes |

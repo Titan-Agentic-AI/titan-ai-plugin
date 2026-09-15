@@ -1002,3 +1002,31 @@ For "track these keywords for <ASIN>", "label/tag my tracked keywords", "where a
   in user-facing prose — use the phrase / label / tag names. Sources section mandatory.
 
 Latency: 1-3s per read; writes are immediate. NO dry-run, but every write is reversible.
+
+
+## Workflow 17: Compass supplier book and SKU ordering settings (reads + writes, no dry-run)
+
+For "show my Compass suppliers", "which SKUs are not set up in Compass", "set the MOQ for these SKUs", "move these SKUs to another supplier". Compass is part of Titan, never a connector. The writes are HIL-approved, REAL/IMMEDIATE, and recompute nothing.
+
+```
+1. get_compass_suppliers() — the supplier book and each supplier's supplierId.
+2. get_compass_product_configs({ configStatus?, supplierId?, skus?, marketplaces? })
+   — find the SKUs to change; each row's salesChannel + sku is the write's key.
+3. BEFORE a supplier update or delete: get_compass_product_configs({ supplierId })
+   and name the SKUs it affects. An update changes all of them; a delete leaves
+   them linked to the deleted supplier with its last terms.
+4. WRITE (confirm the exact change first):
+   - propose_save_compass_suppliers({ suppliers:[...] })            — ATOMIC
+   - propose_update_compass_product_configs({ products:[...] })     — partial success,
+     read every results[i].status; relink only, never unlink
+   - propose_delete_compass_supplier({ supplierId })                 — no restore
+5. Re-read the SKUs or suppliers you changed.
+6. Tell the user Compass has NOT recalculated the forecast, the Demand Plan or the
+   Purchase Orders yet, and that they should open Compass and accept the recompute
+   prompt before relying on those figures.
+```
+
+→ Never surface supplierId / correlationId in user-facing prose — use supplier names
+  and SKUs. configStatus on a re-read can lag until the user recomputes in Compass.
+
+Latency: 1-3s per read; writes are immediate. NO dry-run.
