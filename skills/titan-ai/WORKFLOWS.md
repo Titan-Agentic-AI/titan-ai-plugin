@@ -728,7 +728,9 @@ CROSS-REFERENCE:
 ```
 
 **Recompute / refresh a relevancy dataset's rankings:** when the data looks stale,
-`propose_relevancy_ranking_update({ datasetId })` triggers a REAL recompute (once
+`propose_relevancy_ranking_update({ datasetId, marketplace })` — pass the storefront the
+session is pinned to, since the status poll and the re-reads below follow the pin and take
+no marketplace — triggers a REAL recompute (once
 per 24h, runs async — returns `{success}` immediately). Then poll
 `get_relevancy_ranking_status({ datasetId })` until `{ ongoing: false }` and re-read
 `get_keyword_relevancy` / `get_keyword_families`. `propose_relevancy_cache_purge({
@@ -957,12 +959,12 @@ For "which competitors should I track for <ASIN>?" / "set up relevancy tracking 
    pages/sorts stay comparable.
 2. Identify 1-10 competitor ASINs (from the user, or search_for_products / the
    product's category). Confirm them with the operator.
-3. propose_create_relevancy_dataset({ datasetName, asin, competitorAsins:[...] })
+3. propose_create_relevancy_dataset({ datasetName, asin, competitorAsins:[...], marketplace })
    — HIL-approved, IMMEDIATE, IRREVERSIBLE (no delete). Returns numeric datasetId.
 4. get_keyword_relevancy({ asin, dataset:{ id: <new datasetId> } }) — the new dataset
    is queryable immediately (no processing delay). Analyze relevancy + competitor ranks.
 5. Refine: propose_add_relevancy_dataset_asins / propose_remove_relevancy_dataset_asins
-   ({ dataSetId, asins:[...] }) to adjust the competitor set, then re-read.
+   ({ dataSetId, asins:[...], marketplace }) to adjust the competitor set, then re-read.
 ```
 
 → Synthesize through the Titan lens (which phrases are genuinely relevant, where
@@ -982,7 +984,7 @@ For "track these keywords for <ASIN>", "label/tag my tracked keywords", "where a
 2. See what's already tracked: get_keyword_ranks({ asin, search?, sortBy?, page? }).
    Unranked phrases have organicRank/sponsoredRank = null (read isOrganicRanked /
    isSponsoredRanked) — there is NO 301 sentinel.
-3. ADD: propose_track_keywords({ asin, phrases:[...] }) — HIL-approved. Partial-success:
+3. ADD: propose_track_keywords({ asin, phrases:[...], marketplace }) — HIL-approved. Partial-success:
    per-item SUCCESS / ALREADY_TRACKED / ERROR. items[].key echoes the PHRASE, NOT the
    new keywordRankTrackerId.
 4. RESOLVE THE ID (required before labeling/tagging a just-added keyword): re-call

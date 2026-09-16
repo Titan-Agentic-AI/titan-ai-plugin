@@ -784,17 +784,19 @@ Response:
 
 ## Keyword Relevancy dataset writes (`/v1/tools/relevancy/*`, `account:write`)
 
-Distinct from the Amazon Ads writes above: these hit the Keyword Relevancy dashboard's API, are NOT multi-status, have NO dry-run and NO delete. `sellerId` + `marketplace` (storefront string) are injected from the active seller — omit them.
+Distinct from the Amazon Ads writes above: these hit the Keyword Relevancy dashboard's API, are NOT multi-status, have NO dry-run and NO delete. `sellerId` is injected from the active seller — omit it. `marketplace` (storefront string) is REQUIRED and is the storefront written on: it is validated against the seller's connected marketplaces and refused with `MARKETPLACE_NOT_AVAILABLE` rather than rerouted. It does NOT read the session pin — but it must AGREE with it, because the relevancy reads do follow the pin (else home) and declare no marketplace of their own. A write the reads could not follow is refused with `MARKETPLACE_NOT_READABLE`; pin the session with `set_active_seller({ storeName, marketplace })` and pass the same value here.
 
 ```jsonc
 // propose_create_relevancy_dataset
 { "datasetName": "Premium Album — competitors",
   "asin": "B0B3V3791F",            // a seller-OWNED ASIN
+  "marketplace": "Amazon.com",     // REQUIRED — the storefront written on
   "competitorAsins": ["B0B96J9LL8", "B001VGC0AA"] }  // 1-10, runtime-required
 //  -> { "datasetId": 187798 }      // NUMBER (not the UUID the swagger implies)
 
 // propose_add_relevancy_dataset_asins  /  propose_remove_relevancy_dataset_asins
 { "dataSetId": 187798,              // camelCase `dataSetId` (capital S) — NOT `datasetId`
+  "marketplace": "Amazon.com",      // REQUIRED — the storefront written on
   "asins": ["B001VGC0AA"] }         // 1-10
 //  -> { "success": true }
 ```
@@ -804,26 +806,28 @@ Distinct from the Amazon Ads writes above: these hit the Keyword Relevancy dashb
 - **No dry-run, no delete**: a created dataset is permanent. Label test datasets; there is no endpoint to remove one.
 
 ```jsonc
-// propose_relevancy_ranking_update  (marketplace injected)
-{ "datasetId": 187821 }              // NOTE: datasetId (lowercase s), not dataSetId
+// propose_relevancy_ranking_update  (marketplace required — the one recomputed)
+{ "datasetId": 187821,               // NOTE: datasetId (lowercase s), not dataSetId
+  "marketplace": "Amazon.com" }      // REQUIRED — omitting it is rejected before the call
 //  -> { "success": true }           // returns immediately; recompute runs ASYNC
 
-// propose_relevancy_cache_purge  (NO marketplace — even though it is injected
+// propose_relevancy_cache_purge  (NO marketplace — even though it is carried
 //                                  for the other relevancy writes)
 { "datasetId": 187821 }
 //  -> { "success": true }
 ```
 
 - **`ranking/update` is once/24h + ASYNC**: `{success}` means "accepted", not "done". Poll `get_relevancy_ranking_status` (`{ datasetId }` → `{ ongoing: boolean }`) until `ongoing:false`, then re-read.
-- **`cache/purge` takes NO marketplace** (D-purge) — `{ sellerId, datasetId }` only. `ranking/update` DOES carry the injected marketplace. Note both use `datasetId` (lowercase s), unlike the add/remove `dataSetId`.
+- **`cache/purge` takes NO marketplace** (D-purge) — `{ sellerId, datasetId }` only. `ranking/update` DOES carry a marketplace, and it is the one you pass. Note both use `datasetId` (lowercase s), unlike the add/remove `dataSetId`.
 
 ## Keyword Rank Tracker writes (`/v1/krt/*`, `account:write`)
 
-Distinct from both the Amazon Ads writes and the relevancy writes: these are **partial-success batches** (NOT multi-status), have **NO dry-run**, but are **REVERSIBLE**. `sellerId` is injected from the active seller — omit it. `marketplace` is injected ONLY for `propose_track_keywords` (asin-scoped, US/DE/UK/CA); the by-id writes take NO marketplace.
+Distinct from both the Amazon Ads writes and the relevancy writes: these are **partial-success batches** (NOT multi-status), have **NO dry-run**, but are **REVERSIBLE**. `sellerId` is injected from the active seller — omit it. `marketplace` is carried ONLY by `propose_track_keywords` (asin-scoped, US/DE/UK/CA), where it is REQUIRED and is the storefront tracked on — validated against the seller's connected marketplaces, never rerouted, and NOT taken from the session pin. The by-id writes take NO marketplace.
 
 ```jsonc
-// propose_track_keywords  (asin-scoped — marketplace injected, US/DE/UK/CA only)
+// propose_track_keywords  (asin-scoped — marketplace required, US/DE/UK/CA only)
 { "asin": "B0D1NMX2BS",
+  "marketplace": "Amazon.com",                       // REQUIRED — the storefront tracked on
   "phrases": ["travel towel", "quick dry towel"] }   // 1-500
 //  -> { "items": [ { "key": "travel towel", "status": "ALREADY_TRACKED" },
 //                   { "key": "quick dry towel", "status": "SUCCESS" } ],
@@ -849,7 +853,7 @@ Distinct from both the Amazon Ads writes and the relevancy writes: these are **p
 - **Partial-success envelope**: `{ items:[{key,status,error?}], summary:{succeeded,skipped,failed} }`. `propose_track_keywords` status ∈ `SUCCESS | ALREADY_TRACKED | ERROR`; the rest ∈ `SUCCESS | ERROR`. Do NOT `parseMultiStatus`.
 - **`items[].key` semantics**: track → the phrase; untrack/label/tag → the `keywordRankTrackerId`; remove-tags → the `tagId`.
 - **`propose_set_keyword_label` is a PATCH** and `labelId: null` CLEARS the label (reversible).
-- **Marketplace asymmetry**: only `propose_track_keywords` carries `marketplace` (injected). Sending `marketplace` on a by-id write is rejected.
+- **Marketplace asymmetry**: only `propose_track_keywords` carries `marketplace`, and it is required and honoured. Sending `marketplace` on a by-id write is rejected.
 
 ## Keyword comment writes (`/v1/krt/comments`, `account:write`)
 
