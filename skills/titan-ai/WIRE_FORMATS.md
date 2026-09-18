@@ -586,7 +586,7 @@ A sequence of zero buckets does NOT prove no ads ran. The most common cause is *
 
 ## `create_custom_report` / `get_custom_report` — wire format (async report generation)
 
-Internal-api, x-api-key. Read-style tools (no approval prompt). `sellerId` is auto-resolved from the active seller and `deliveryMethod` is always `link` — neither is model-facing; the tool injects them, so they are omitted from the bodies below.
+Internal-api, x-api-key. Read-style tools (read-only). `sellerId` is auto-resolved from the active seller and `deliveryMethod` is always `link` — neither is model-facing; the tool injects them, so they are omitted from the bodies below.
 
 ### `create_custom_report` body
 
@@ -674,7 +674,7 @@ Response `status` ∈ `IN_PROGRESS | DONE | FAILED | CANCELLED | DELETED | NO_DA
 
 ## `get_awd_inventory` / `get_awd_inbound_shipments` / `get_awd_replenishment_orders` — wire format (AWD live reads, US-only)
 
-Live SP-API AWD proxies. Read-style tools (no approval prompt). `sellerId` is auto-resolved from the active seller and `marketplace` is **forced to `Amazon.com`** (AWD is US-only — never derived from `mainSalesChannel`); neither is model-facing. The only model-facing inputs are the optional Amazon filters + `nextToken` (see the SKILL tool table). The response is Amazon's payload **verbatim, including `nextToken`** — pagination is the caller's responsibility (pass `nextToken` back; the tool does NOT auto-walk).
+Live SP-API AWD proxies. Read-style tools (read-only). `sellerId` is auto-resolved from the active seller and `marketplace` is **forced to `Amazon.com`** (AWD is US-only — never derived from `mainSalesChannel`); neither is model-facing. The only model-facing inputs are the optional Amazon filters + `nextToken` (see the SKILL tool table). The response is Amazon's payload **verbatim, including `nextToken`** — pagination is the caller's responsibility (pass `nextToken` back; the tool does NOT auto-walk).
 
 **3-state response signal** (the body of a 403/404 is an identical-looking Amazon `Unauthorized` envelope — we classify on HTTP status, so trust the `code`):
 
@@ -682,7 +682,7 @@ Live SP-API AWD proxies. Read-style tools (no approval prompt). `sellerId` is au
 |---|---|---|
 | Enrolled US seller, has data | 200 | `{ inventory: [...] }` / `{ shipments: [...] }` / `{ orders: [...], nextToken? }` |
 | Enrolled US seller, nothing right now | 200 | `{ inventory: [] }` (etc.) — enrolled, no current stock/shipments/orders — **NOT "no AWD"** |
-| Not re-authed for the AWD role | 403 → `AWD_NOT_ENROLLED` | `{ error: true, code: "AWD_NOT_ENROLLED", message }` — actionable: ask the operator to re-authorise Titan Tools |
+| AWD role missing OR not AWD-enrolled (indistinguishable) | 403 → `AWD_NOT_ENROLLED` | `{ error: true, code: "AWD_NOT_ENROLLED", message }` — granted on Amazon's side, so a Titan reconnect does not change it; confirm enrolment in Seller Central, then contact Titan support |
 | No US (Amazon.com) connection | 404 → `AWD_NO_US_CONNECTION` | `{ error: true, code: "AWD_NO_US_CONNECTION", message }` — US-only gating |
 
 Real shapes (probe-verified gomezfit / A20KO674Z5KLVG, 2026-05-30):

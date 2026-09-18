@@ -6,30 +6,32 @@ Action tools modify the user's Amazon Advertising account. Every call may spend 
 
 ## Prefer live writes over sheets
 
-When a change can be made with the `propose_*` tools (and `tools:write` is granted), **make it live** — call the tool. Do **not** default to generating a bulk XLSX/CSV upload sheet for the user to apply by hand when a live write is available: the live path is approval-gated, auditable, and applies immediately, whereas a sheet is an un-tracked manual step that often never gets uploaded.
+When a change can be made with the `propose_*` tools (and `tools:write` is granted), **make it live** — call the tool. Do **not** default to generating a bulk XLSX/CSV upload sheet for the user to apply by hand when a live write is available: the live path is auditable and applies immediately, whereas a sheet is an un-tracked manual step that often never gets uploaded.
 
 Fall back to producing a sheet only when:
 - the user **explicitly** asks for a downloadable file, or
 - the operation isn't covered by the `propose_*` surface (e.g. a bulk operation with no corresponding write tool), or
 - `tools:write` isn't granted (no write access on this connection).
 
-## How approval works
+## How approval works, and why you cannot rely on it
 
-Before any `propose_*` tool runs, your host (Claude.ai, Claude Desktop, Claude Code, Cowork) prompts the user to Approve or Deny:
+This server cannot ask the user anything. It has no channel to put a question in front of them mid-call, so **approval is the AI application's to ask for, not ours to promise.** Applications differ, the user can turn prompting off per tool, and some clients run tools with no interactive approval at all.
 
-| Host | Approval surface |
+**Never tell the user they will be asked to approve a call. Assume they will not be.**
+
+| Where the connection lives | Where the approval setting lives |
 |------|------------------|
-| Claude.ai web custom connector | "Allow this tool call?" dialog with tool name + JSON args |
-| Claude Desktop | Similar dialog |
-| Claude Code plugin | Permission prompt unless user pre-allowlisted in `~/.claude/settings.json` |
-| Cowork | Per-tool prompt |
-| OpenClaw | **NO PROMPT.** OpenClaw runs tools unattended. The skill's narration is the only safeguard. |
+| Claude.ai web custom connector | Connector settings, per tool |
+| Claude Desktop | Connector settings, per tool |
+| Claude Code plugin | Permission rules in `~/.claude/settings.json` |
+| Cowork | The app's tool permission settings |
+| Automated or headless clients | No approval step exists. The call runs when you make it. |
 
-**Bundling on OpenClaw**: when multiple writes are bundled in a single response, OpenClaw runs each tool unattended — there's no per-call gate. The user reviews the batch retroactively. Narrate fully before bundled writes since OpenClaw cannot prompt the user mid-batch.
+**So narrate, every time.** Say what you are about to change, in plain prose, BEFORE you call a write tool. Your narration is the only safeguard you control, and on a client that never prompts it is the only one there is. When you bundle several writes into one response, narrate all of them first: nothing gets to interrupt you mid-batch.
 
 ## DANGER: "Always Allow" is your enemy
 
-Most hosts let the user toggle "Always Allow" per-tool or per-connector. **Once toggled, the human-in-the-loop is gone.** A single misread sales report could spawn 10 campaigns at $500/day each, draining the user's ad budget overnight.
+Where an application does offer a per-tool "Always Allow", turning it on removes the one check that application had. **Assume it may already be on, or that the application never asked in the first place.** A single misread sales report could spawn 10 campaigns at $500/day each, draining the user's ad budget overnight.
 
 **Always tell users**: "I recommend reviewing every action call. Do NOT enable Always Allow for the propose_* tools."
 
@@ -48,7 +50,7 @@ Forbidden post-call phrases include but are not limited to:
 
 Just describe what changed — same wording in either env. See the "Result presentation" section below.
 
-Never assume dry-run mode is on. The user's narration + their explicit approval are the only safeguards before real spend.
+Never assume dry-run mode is on. Your narration and the user's explicit yes in the conversation are the only safeguards before real spend.
 
 ## Multi-status responses
 
@@ -138,7 +140,7 @@ Omit `marketplace` to use the default. A value that isn't one of the seller's co
 
 Five writes touch the seller's Titan Tools **Keyword Relevancy datasets** instead of their Amazon Advertising account: `propose_create_relevancy_dataset`, `propose_add_relevancy_dataset_asins`, `propose_remove_relevancy_dataset_asins`, `propose_relevancy_ranking_update`, `propose_relevancy_cache_purge`. They behave differently from the Amazon Ads writes above:
 
-- **No dry-run, no delete.** Upstream `/v1/tools/relevancy/*` has no dry-run, so these execute the moment the host approves — in EVERY environment, including staging. A created dataset CANNOT be removed via the API (there is no delete endpoint). Confirm intent before calling, and label throwaway/test datasets clearly (they leave permanent residue).
+- **No dry-run, no delete.** Upstream `/v1/tools/relevancy/*` has no dry-run, so these execute the moment you call them — in EVERY environment, including staging. A created dataset CANNOT be removed via the API (there is no delete endpoint). Confirm intent before calling, and label throwaway/test datasets clearly (they leave permanent residue).
 - **Not multi-status.** They return the raw `{ datasetId }` (create — a NUMBER, e.g. `187798`) or `{ success: true }` (add/remove/ranking-update/cache-purge), plus a `correlationId`. There is no `success[]`/`error[]` array — a thrown upstream error surfaces as a structured `{ error, message }`.
 - **Auth is handled server-side** — no re-link needed. The write runs under the user's OAuth grant when it carries write access, otherwise it transparently falls back to the server credential. (Upstream requires `account:write`; the OAuth client cannot grant that scope yet — raised with upstream 2026-06-11 — so the server-credential fallback is currently the active path.)
 - **Body shapes** (see `WIRE_FORMATS.md`): create takes `{ datasetName, asin, competitorAsins:[1-10], marketplace }`; add/remove take `{ dataSetId, asins:[1-10], marketplace }` — note `dataSetId` is **camelCase** (capital S), unlike the `datasetId` the read tool returns. sellerId is injected from the active seller. `marketplace` is REQUIRED and is the storefront the dataset is written on: pass a value from `get_marketplaces` verbatim. A storefront the seller is not connected to is refused with `MARKETPLACE_NOT_AVAILABLE` and the valid list — it is never rerouted. **It must also be the storefront the session is pinned to** (or the home storefront when nothing is pinned): the relevancy READS take no marketplace of their own, so a write anywhere else could not be read back, and is refused with `MARKETPLACE_NOT_READABLE` naming both storefronts. To work on another one, call `set_active_seller({ storeName, marketplace })` first, then pass that same value here.
@@ -150,7 +152,7 @@ Result presentation: same natural-prose rule as the Amazon Ads writes — e.g. "
 
 Five writes manage what the seller tracks in the **Keyword Rank Tracker** (`/v1/krt/*`): `propose_track_keywords`, `propose_untrack_keywords`, `propose_set_keyword_label`, `propose_add_keyword_tag`, `propose_remove_keyword_tags`. They behave differently from both the Amazon Ads writes and the relevancy writes:
 
-- **No dry-run, but REVERSIBLE.** Upstream has no dry-run (they execute on approval, every environment), but each is undoable: untrack reverses track, a `null` label clears a label, remove-tag reverses add-tag. The HIL copy says "REAL, IMMEDIATE, but reversible" — distinct from the relevancy writes' "IRREVERSIBLE".
+- **No dry-run, but REVERSIBLE.** Upstream has no dry-run (they execute the moment you call them, every environment), but each is undoable: untrack reverses track, a `null` label clears a label, remove-tag reverses add-tag. The tool description says "REAL, IMMEDIATE, but reversible" — distinct from the relevancy writes' "IRREVERSIBLE".
 - **Partial-success batches (NOT multi-status).** They return `{ items: [{ key, status, error? }], summary: { succeeded, skipped, failed } }` + a `correlationId`. This is NOT the Amazon Ads `success[]`/`error[]` shape. Inspect each item: `propose_track_keywords` per-item status ∈ `SUCCESS | ALREADY_TRACKED | ERROR` (ALREADY_TRACKED counts under `summary.skipped`); the others ∈ `SUCCESS | ERROR`. The connector writes one `action_logs` row per item.
 - **`propose_track_keywords` does NOT return the new id.** `items[].key` echoes the *phrase*, not the new `keywordRankTrackerId`. To label/tag a just-added keyword, re-call `get_keyword_ranks` (with `search`) to resolve its id first.
 - **Auth is handled server-side** — same user-OAuth-first → server-credential fallback as the relevancy writes.
@@ -173,7 +175,7 @@ Result presentation: natural prose — e.g. "Added your note to that keyword." N
 
 Three writes change the seller's **Compass** inventory planning in Titan Tools (`/v1/compass/*`): `propose_save_compass_suppliers`, `propose_delete_compass_supplier`, `propose_update_compass_product_configs`. Compass is part of Titan, never an external system or a connector: when the user mentions Compass, use these tools and the two Compass reads, not a custom connector. They appear only while Compass is enabled on the server; if they are not in your tool list, Compass is not available to this account.
 
-- **No dry-run.** Each executes the moment the host approves, in every environment. Confirm the exact change with the user first.
+- **No dry-run.** Each executes the moment you call it, in every environment. Confirm the exact change with the user first.
 - **Nothing is recalculated.** A successful write does NOT recompute the forecast, the Demand Plan or the Purchase Orders. Every success carries `recalculationNotice`: tell the user, in plain words, that Compass has NOT recalculated those yet and that they should open Compass and accept the recompute prompt before relying on them.
 - **`propose_save_compass_suppliers`** creates (omit `supplierId`; `supplierName` is then required) or updates (send a `supplierId` from `get_compass_suppliers`) 1-200 suppliers, changing only the fields sent. ATOMIC: one invalid row refuses the whole call and nothing is written. Updating a supplier also changes the terms on EVERY SKU linked to it, so list those SKUs first (`get_compass_product_configs` with that `supplierId`). Returns `{ suppliers: [{ index, action: created | updated, supplier }], summary, recalculationNotice }`.
 - **`propose_delete_compass_supplier`** deletes ONE supplier by `supplierId`. There is NO restore: creating it again gives a new `supplierId`. Linked SKUs are NOT unlinked; they keep its last terms and still show its `supplierId`, so list them first and offer to relink them. An unknown or already-deleted id fails with `COMPASS_NOT_FOUND` and deletes nothing.
@@ -288,12 +290,12 @@ State casing varies by route. Mismatch fails at Zod validation before any networ
 | Added neg keyword | `propose_update_sp_*_neg_keyword` (or `propose_update_sb_ad_group_neg_keyword`) with `state: ARCHIVED` (or `archived` for SB). |
 | Added neg target | `propose_update_sp_*_neg_target` (or `propose_update_sb_ad_group_neg_target`) with `state: ARCHIVED` (or `archived` for SB). |
 
-The user must approve each rollback call too.
+A rollback is a write like any other. Narrate it before you call it, and do not assume anything will ask the user first.
 
 ## Critical rules summary (in priority order)
 
 1. **Knowledge before action.** Even action requests trigger the source-of-truth principle — call `titan_lessons` for the strategic rationale before proposing the write. The action narration must cite the Titan source.
-2. **Bundle freely.** Multiple `propose_*` calls in one response are fine — the host approves each call individually. Use bundling for batch negation / batch pausing / multi-step plans.
+2. **Bundle only after narrating all of it.** Multiple `propose_*` calls in one response are fine for batch negation / batch pausing / multi-step plans, but nothing is guaranteed to interrupt you between them. Say what the whole batch will change before the first call, not after the last.
 3. **Acknowledge before acting.** Briefly say what you're about to do (one sentence is fine), then proceed.
 4. **No "Always Allow" nudge.**
 5. **Inspect the multi-status `error[]`.** Empty `error` is the only success.

@@ -48,9 +48,9 @@ with the cheapest correct path:
   `NO_ACTIVE_SELLER` / `MUST_SET_ACTIVE_ACCOUNT` / `MUST_SELECT_ACCOUNT`, *then*
   establish context (below) and retry. A failed read is free.
 - **Before a write (`propose_*`) or a multi-step build:** probe once with
-  `get_active_account` (zero args, no approval prompt) to confirm the right
+  `get_active_account` (zero args, read-only) to confirm the right
   account + store are active. A write that fails on missing context still costs
-  the user an approval click — the free probe prevents that.
+  a real write attempt — the free probe prevents that.
 
 Establish context only when the probe/attempt shows it missing or wrong:
 
@@ -83,10 +83,10 @@ For step-by-step sequences (PPC audit, product portfolio review, SQP keyword res
 
 ## Actions (Amazon Ads writes — REAL MONEY)
 
-For the full action-tool reference (approval flow, dry-run details, multi-status response handling, failure modes, and rollback recipes), see [`ACTIONS.md`](./ACTIONS.md) in this skill.
+For the full action-tool reference (who decides whether a call is approved, dry-run details, multi-status response handling, failure modes, and rollback recipes), see [`ACTIONS.md`](./ACTIONS.md) in this skill.
 
 Critical rules summary (the ACTIONS.md file is the source of truth):
-1. Briefly say what you're about to do, then call the `propose_*` tool(s). Bundle multiple calls when natural — the host approves each call individually.
+1. Say what you are about to change, then call the `propose_*` tool(s). Bundle multiple calls when natural, but narrate the whole batch first: nothing is guaranteed to ask the user between them.
 2. Never encourage the user to enable "Always Allow" — it disables the safety check.
 3. Production runs with `dryRun: false` on every `propose_*` call — they are real Amazon writes, not simulations. Inspect the field on every response and say which mode occurred. (The `ACTIONS_FORCE_DRY_RUN` env that would force simulation is not set in production.)
 4. Inspect the multi-status `error[]` — empty `error` is the only success.
@@ -145,7 +145,7 @@ For the per-`propose_*` body shapes (campaign create, target update, keyword neg
 
 ### Actions — Keyword Relevancy Dataset Writes (OAuth `account:write` scope)
 
-The first knowledge/research writes — they modify the seller's Titan Tools **Keyword Relevancy datasets**, NOT their Amazon Advertising account. Same host approval pill as the Amazon Ads writes. **No dry-run and no delete**: each executes immediately on approval, and a created dataset cannot be removed via the API. Returns the raw `{datasetId}` (create) or `{success}` (add/remove) + a `correlationId`. Authorization is handled server-side — no extra consent or re-link is required.
+The first knowledge/research writes — they modify the seller's Titan Tools **Keyword Relevancy datasets**, NOT their Amazon Advertising account. Narrate them like every other write. **No dry-run and no delete**: each executes the moment it is called, and a created dataset cannot be removed via the API. Returns the raw `{datasetId}` (create) or `{success}` (add/remove) + a `correlationId`. Authorization is handled server-side — no extra consent or re-link is required.
 
 | Tool | Purpose |
 |------|---------|
@@ -157,7 +157,7 @@ The first knowledge/research writes — they modify the seller's Titan Tools **K
 
 ### Actions — Keyword Rank Tracker Writes (OAuth `account:write` scope)
 
-Manage what the seller tracks in the **Keyword Rank Tracker** (NOT Amazon Ads). Same host approval pill as every write. **No dry-run, but REVERSIBLE** (untrack reverses track, a `null` label clears it, remove-tag reverses add-tag). These are **partial-success batches**: the response is `{ items: [{ key, status, error? }], summary: { succeeded, skipped, failed } }` — inspect each item. `propose_track_keywords` is asin-scoped and takes a REQUIRED `marketplace` — the storefront tracked on, validated against the seller's connected marketplaces and NOT read from the session pin, so name it yourself on a pinned session (US/DE/UK/CA only); the others are by-`keywordRankTrackerId` (or `tagId`). **`propose_track_keywords` does NOT return the new id** — re-call `get_keyword_ranks` (with `search`) to resolve the `keywordRankTrackerId` before labeling/tagging.
+Manage what the seller tracks in the **Keyword Rank Tracker** (NOT Amazon Ads). Narrate it like every other write. **No dry-run, but REVERSIBLE** (untrack reverses track, a `null` label clears it, remove-tag reverses add-tag). These are **partial-success batches**: the response is `{ items: [{ key, status, error? }], summary: { succeeded, skipped, failed } }` — inspect each item. `propose_track_keywords` is asin-scoped and takes a REQUIRED `marketplace` — the storefront tracked on, validated against the seller's connected marketplaces and NOT read from the session pin, so name it yourself on a pinned session (US/DE/UK/CA only); the others are by-`keywordRankTrackerId` (or `tagId`). **`propose_track_keywords` does NOT return the new id** — re-call `get_keyword_ranks` (with `search`) to resolve the `keywordRankTrackerId` before labeling/tagging.
 
 | Tool | Purpose |
 |------|---------|
@@ -181,7 +181,7 @@ Titan Tools' own supplier book and per-SKU ordering settings. Compass is part of
 
 ### Actions — Compass Writes (NOT Amazon Ads)
 
-Change Compass, not the Amazon account. Same host approval pill as every write. **No dry-run, and nothing is recalculated**: after a successful write, tell the user Compass has NOT recalculated the forecast, the Demand Plan or the Purchase Orders yet, and that they should open Compass and accept the recompute prompt. Authorization is handled server-side. See ACTIONS.md "Compass writes".
+Change Compass, not the Amazon account. Narrate it like every other write. **No dry-run, and nothing is recalculated**: after a successful write, tell the user Compass has NOT recalculated the forecast, the Demand Plan or the Purchase Orders yet, and that they should open Compass and accept the recompute prompt. Authorization is handled server-side. See ACTIONS.md "Compass writes".
 
 | Tool | Purpose |
 |------|---------|
@@ -261,7 +261,7 @@ Change Compass, not the Amazon account. Same host approval pill as every write. 
 
 | Tool | Purpose |
 |------|---------|
-| `search_for_ppc_campaigns` | Find campaigns by name. Supports `campaignIds: [...]` for direct lookup, plus **`statuses`** (UPPERCASE array: 'ENABLED'/'PAUSED'/'ARCHIVED'), `portfolioIds` and `types` server-side. Only the SINGULAR `status` is rejected with 400 (verified 2026-05-15) — that finding is about the key NAME. Each campaign object carries `status`, never `state`. Response includes per-campaign `matchType` (AUTO/BROAD/EXACT/PHRASE), `tags` (operator-applied string array — surface verbatim), plus `creationDate` (creation timestamp `"YYYY-MM-DD HH:mm:ss"` UTC — read as campaign TENURE; segment new vs established cohorts before judging performance. **MAY BE NULL** — reliable for SP/SD, frequently null for SB/SBV and older campaigns; absence is not meaningful). **`campaignType` ('SP'/'SB'/'SBV'/'SD') comes back alongside `matchType`, and a non-SP row can carry a match type too (TF-1103) — narrow before any match-type rollup or you blend ad programs under an SP label.** |
+| `search_for_ppc_campaigns` | Find campaigns by name. Supports `campaignIds: [...]` for direct lookup, plus **`statuses`** (UPPERCASE array: 'ENABLED'/'PAUSED'/'ARCHIVED'), `portfolioIds` and `types` server-side. Only the SINGULAR `status` is rejected with 400 (verified 2026-05-15) — that finding is about the key NAME. Each campaign object carries `status`, never `state`. Response includes per-campaign `matchType` (AUTO/BROAD/EXACT/PHRASE), `tags` (operator-applied string array — surface verbatim), `budget` (the campaign's budget AMOUNT. This response carries no `budgetType`. For SP it is a DAILY amount in practice (the SP update contract accepts only DAILY; prod rejects LIFETIME), so an SP per-day threshold can use it directly; for SB and SD confirm `budgetType` on `get_live_campaigns_extended` before applying a "$X per day" threshold) and `currencyCode` — this is the FREE persisted budget, so prefer it over `get_live_campaigns_extended` whenever the budget need not be accurate to the minute — plus `creationDate` (creation timestamp `"YYYY-MM-DD HH:mm:ss"` UTC — read as campaign TENURE; segment new vs established cohorts before judging performance. **MAY BE NULL** — reliable for SP/SD, frequently null for SB/SBV and older campaigns; absence is not meaningful). **`campaignType` ('SP'/'SB'/'SBV'/'SD') comes back alongside `matchType`, and a non-SP row can carry a match type too (TF-1103) — narrow before any match-type rollup or you blend ad programs under an SP label.** |
 | `get_ppc_portfolios` | List portfolios. Supports `portfolioIds: [...]`, `statuses: [...]`. |
 | `get_ppc_ad_groups` | List ad groups. Server-side filters: `campaignIds`, `adGroupIds` (arrays — wrap a single ID `[id]`), `types` ('SP'/'SB'/'SBV'/'SD'). |
 | `get_ppc_product_ads` | List product ads. Server-side filters: `campaignIds`, `adGroupIds`, `adIds`, `types`. |
@@ -315,7 +315,7 @@ Highlights:
 
 Live reads of the seller's AWD position — the en-route + warehoused layer that sits behind FBA. **US-only**: these always run against `Amazon.com` regardless of the seller's other marketplaces (sellerId + marketplace are injected for you). Returns Amazon's payload **verbatim incl. `nextToken`** — pass it back to fetch the next page (caller-driven pagination). Requires an active seller.
 
-**Three-state signal — read it before you report:** an empty array (`inventory: []` / `shipments: []` / `orders: []`) = the seller IS AWD-enrolled but has nothing right now — NOT "no AWD." `AWD_NOT_ENROLLED` = the seller hasn't re-authorised Titan Tools for the AWD role (actionable: tell them to re-auth). `AWD_NO_US_CONNECTION` = no US Selling-Partner connection. These are distinct from FBA stock (`availableQuantity` on `search_for_products`) and from the `awd*Quantity` fields on `search_for_products` (a daily snapshot — may be null/stale; use these tools for real AWD figures). See [`WIRE_FORMATS.md`](./WIRE_FORMATS.md) for the full 3-state table.
+**Three-state signal — read it before you report:** an empty array (`inventory: []` / `shipments: []` / `orders: []`) = the seller IS AWD-enrolled but has nothing right now — NOT "no AWD." `AWD_NOT_ENROLLED` = Titan Tools lacks the AWD role for this account, or the account isn't AWD-enrolled; the 403 cannot tell which. Granted on Amazon's side, so a Titan reconnect does not change it: confirm enrolment in Seller Central, then contact Titan support. `AWD_NO_US_CONNECTION` = no US Selling-Partner connection. These are distinct from FBA stock (`availableQuantity` on `search_for_products`) and from the `awd*Quantity` fields on `search_for_products` (a daily snapshot — may be null/stale; use these tools for real AWD figures). See [`WIRE_FORMATS.md`](./WIRE_FORMATS.md) for the full 3-state table.
 
 | Tool | Purpose |
 |------|---------|
@@ -325,11 +325,11 @@ Live reads of the seller's AWD position — the en-route + warehoused layer that
 
 ### Live campaigns extended (opt-in — heavy Amazon throttle cost)
 
-A LIVE Amazon Ads API campaign list with extended fields, for one ad program at a time. **⚠ This burns SIGNIFICANTLY more Amazon throttle quota than the persisted endpoints.** For plain campaign tenure, ALWAYS prefer the FREE persisted `creationDate` on `search_for_ppc_campaigns` / `get_account_ppc_metrics_by_campaign`. Reach for this ONLY when you need the LIVE serving status or last-update, or a creation date the persisted endpoints returned null for (e.g. an SB/SBV campaign). marketplace is the active seller's storefront, resolved for you. Requires an active seller.
+A LIVE Amazon Ads API campaign list with extended fields, for one ad program at a time. **⚠ This burns SIGNIFICANTLY more Amazon throttle quota than the persisted endpoints.** For plain campaign tenure, ALWAYS prefer the FREE persisted `creationDate` on `search_for_ppc_campaigns` / `get_account_ppc_metrics_by_campaign`. Reach for this ONLY when you need the LIVE serving status, the LIVE DAILY BUDGET, or last-update, or a creation date the persisted endpoints returned null for (e.g. an SB/SBV campaign). A rule keyed on the daily budget as it is right now is one of those live fields; for a budget that need not be accurate to the minute, `search_for_ppc_campaigns` carries the same budget FREE. marketplace is the active seller's storefront, resolved for you. Requires an active seller.
 
 | Tool | Purpose |
 |------|---------|
-| `get_live_campaigns_extended` | Live campaign list with extended fields for ONE program. Required: `adType` ('SP'/'SB'/'SD'). Pagination: SP/SB pass `nextToken` back; SD uses `startIndex`/`count`. Returns `{ adType, campaigns: [{ campaignId, name, state, adType, creationDate (`"YYYY-MM-DD HH:mm:ss"` UTC, normalized across programs; null when absent), servingStatus (LIVE delivery state e.g. `CAMPAIGN_PAUSED`/`ACCOUNT_OUT_OF_BUDGET`/`PORTFOLIO_OUT_OF_BUDGET` — distinct from the enabled/paused state), lastUpdateDate }], nextToken?, totalResults?/totalCount? }`. |
+| `get_live_campaigns_extended` | Live campaign list with extended fields for ONE program. Required: `adType` ('SP'/'SB'/'SD'). Pagination: SP/SB pass `nextToken` back; SD uses `startIndex`/`count`. Returns `{ adType, campaigns: [{ campaignId, name, state, adType, creationDate (`"YYYY-MM-DD HH:mm:ss"` UTC, normalized across programs; null when absent), servingStatus (LIVE delivery state e.g. `CAMPAIGN_PAUSED`/`ACCOUNT_OUT_OF_BUDGET`/`PORTFOLIO_OUT_OF_BUDGET` — distinct from the enabled/paused state), lastUpdateDate }], nextToken?, totalResults?/totalCount? }`. **That brace list is the NORMALIZED fields, not the whole row:** each row also carries Amazon's raw campaign object, including `budget`, THE LIVE DAILY BUDGET. `budget` is Amazon's own per-program shape and is not normalized the way the dates are, so read the value you get rather than assuming a bare number. |
 
 ### Alerts (listing / inventory / fee monitoring)
 

@@ -12,7 +12,7 @@ single store is auto-selected. Skip this whole workflow if the user has one
 account (auto-selected) or you already switched this session. Before committing a
 write batch, state the active account + seller you're writing to (confirm with a
 free `get_active_account` probe rather than re-running discovery — a failed write
-burns an approval click). Every write result also echoes `activeContext` (the
+spends a real write attempt). Every write result also echoes `activeContext` (the
 account + seller + marketplace it hit) — verify it matches what the user
 intended. See SKILL.md → "Required Workflow".
 
@@ -59,13 +59,13 @@ Use when the user wants a brand-new Sponsored Products campaign (campaign → ad
 group → product ad(s) → keywords/targets → optional placement bids).
 
 There is **no single "build campaign" tool** and no way to collapse this into one
-approval. Each entity is a separate `propose_*` call, and each downstream call
+call. Each entity is a separate `propose_*` call, and each downstream call
 needs an ID that only comes back in the previous call's `success[]` — so the
-calls are a forced serial chain, not a bundle. The host prompts for approval
-**once per call**, so a full build is ~5 approvals (more if a step fails and
-retries). Set expectations up front, e.g. *"This is a 5-step build — you'll get
-one approval prompt each for the campaign, ad group, product ad, keywords, and
-placement bids."* Do **not** suggest "Always Allow".
+calls are a forced serial chain, not a bundle. Set expectations up front on
+the WORK, not on approvals you cannot promise, e.g. *"This is a 5-step build:
+campaign, ad group, product ad, keywords, then placement bids."* Some
+applications ask the user before each call and some never ask at all, so do not
+tell them how many prompts to expect. Do **not** suggest "Always Allow".
 
 ```
 KNOWLEDGE TRACK (first, mandatory):
@@ -74,7 +74,7 @@ KNOWLEDGE TRACK (first, mandatory):
 
 PRE-FLIGHT:
 - get_active_account (free, no approval) → confirm the right account + store
-  are active BEFORE any approval-gated write. Establish context if missing.
+  are active BEFORE any write. Establish context if missing.
 
 DATA TRACK (sequential — each step feeds the next; batch items WITHIN a step):
 1. propose_create_sp_campaign({ campaigns: [ ... ] })
@@ -82,7 +82,7 @@ DATA TRACK (sequential — each step feeds the next; batch items WITHIN a step):
 2. propose_create_sp_ad_group({ adGroups: [{ campaignId, name, defaultBid, state }] })
    → read the new adGroupId from success[0].
 3. Product ad(s) + keywords/targets — each needs campaignId + adGroupId. Put all
-   items of one kind in ONE call (= ONE approval each):
+   items of one kind in ONE call (= ONE call each):
    - propose_create_sp_product_ad({ productAds: [{ campaignId, adGroupId, sku|asin, state }] })   (max 500/call)
    - propose_create_sp_keyword({ keywords: [{ campaignId, adGroupId, keywordText, matchType, bid?, state:"ENABLED" }, ...] })   (max 500/call — ALL keywords in one call)
    - (or propose_create_sp_target for product/category targets — max 100/call)
@@ -189,7 +189,7 @@ KNOWLEDGE TRACK:
 3. titan_lessons      (query: "wasted spend" or "campaign cleanup")
 4. fetch_framework("ppc_3_0")  (Phase-1 cleanup tactics)
 
-WRITES (bundle in one response when natural; the host gates each call):
+WRITES (bundle in one response when natural; narrate the whole batch first):
 5. SP pauses:
    - propose_update_sp_campaign({campaigns:[{campaignId, state:'PAUSED'}]})
    - propose_update_sp_ad_group({adGroups:[{adGroupId, state:'PAUSED'}]})
@@ -273,7 +273,7 @@ REMEDIATION — pause / un-pause / archive existing neg-keywords (NEW 2026-05-05
     }]})
 
 → Acknowledge what you're about to do, then proceed — bundle the writes in
-  one response when natural. Each call surfaces its own host approval.
+  one response when natural. Narrate the whole batch before the first call.
 ```
 
 ## Workflow 9: Bid Optimization (writes)
@@ -346,7 +346,7 @@ WRITE — single-campaign target via the dedicated tool:
    `ARCHIVED_NOT_EDITABLE` in the response.
 
 → Acknowledge per change: which placement, old %, new %, expected spend
-  redistribution. The host approves the call.
+  redistribution. Narrate it before you call it.
 ```
 
 ## Workflow 11: Negative-Target Hygiene (writes — REAL MONEY)
@@ -394,7 +394,7 @@ WRITES:
       expressions: [{ type: 'asinSameAs', value: 'B0XXXXXXXX' }]    // PLURAL field! camelCase types! No state field!
     }]})  // max 100/call
 
-8. After approval, inspect the multi-status `error[]`. Empty error[] is the only
+8. After the call returns, inspect the multi-status `error[]`. Empty error[] is the only
    success. Note the success-id field per tool:
    - SP campaign-level → success.campaignNegativeTargetingClauseId (long-form)
    - SP ad-group-level → success.targetId (short-form)
@@ -920,9 +920,12 @@ DATA TRACK:
    → 200 with rows: real AWD data — report it.
    → 200 with an empty array (inventory:[]/shipments:[]/orders:[]): the seller IS
      AWD-enrolled but has nothing right now. Say "no current AWD stock", NOT "no AWD".
-   → AWD_NOT_ENROLLED (403): the seller hasn't re-authorised Titan Tools for the AWD
-     role. Tell them to re-authorise Titan Tools to turn on AWD data — do NOT report
-     "no AWD inventory".
+   → AWD_NOT_ENROLLED (403): Titan Tools does not hold the AWD role for this account,
+     OR the account is not AWD-enrolled. The 403 cannot tell the two apart. The role is
+     granted on Amazon's side, so re-running a Titan connection does NOT change it — do
+     not offer a reconnect or a re-authorise as the fix. Have the seller confirm AWD
+     enrolment in Seller Central and contact Titan support to have the role checked. Do
+     NOT report "no AWD inventory".
    → AWD_NO_US_CONNECTION (404): no US Selling-Partner connection; AWD is US-only.
 4. Do NOT use the awd*Quantity fields on search_for_products for this — they come from a
    daily AWD snapshot and may be null or stale (null for sellers not enrolled in AWD, and
@@ -960,7 +963,7 @@ For "which competitors should I track for <ASIN>?" / "set up relevancy tracking 
 2. Identify 1-10 competitor ASINs (from the user, or search_for_products / the
    product's category). Confirm them with the operator.
 3. propose_create_relevancy_dataset({ datasetName, asin, competitorAsins:[...], marketplace })
-   — HIL-approved, IMMEDIATE, IRREVERSIBLE (no delete). Returns numeric datasetId.
+   — IMMEDIATE, IRREVERSIBLE (no delete). Narrate it first. Returns numeric datasetId.
 4. get_keyword_relevancy({ asin, dataset:{ id: <new datasetId> } }) — the new dataset
    is queryable immediately (no processing delay). Analyze relevancy + competitor ranks.
 5. Refine: propose_add_relevancy_dataset_asins / propose_remove_relevancy_dataset_asins
@@ -975,7 +978,7 @@ Latency: 1-3s per read; writes are immediate. NO dry-run, NO delete — confirm 
 
 ## Workflow 16: Manage Keyword Rank Tracking (reads + writes — REVERSIBLE)
 
-For "track these keywords for <ASIN>", "label/tag my tracked keywords", "where am I ranking and how has it moved". KRT is US/DE/UK/CA only. The writes are HIL-approved, REAL/IMMEDIATE but REVERSIBLE (no dry-run).
+For "track these keywords for <ASIN>", "label/tag my tracked keywords", "where am I ranking and how has it moved". KRT is US/DE/UK/CA only. The writes are REAL/IMMEDIATE but REVERSIBLE (no dry-run). Narrate them first.
 
 ```
 0. Knowledge first: titan_lessons (query: "keyword rank tracking" / "ranking strategy").
@@ -984,7 +987,7 @@ For "track these keywords for <ASIN>", "label/tag my tracked keywords", "where a
 2. See what's already tracked: get_keyword_ranks({ asin, search?, sortBy?, page? }).
    Unranked phrases have organicRank/sponsoredRank = null (read isOrganicRanked /
    isSponsoredRanked) — there is NO 301 sentinel.
-3. ADD: propose_track_keywords({ asin, phrases:[...], marketplace }) — HIL-approved. Partial-success:
+3. ADD: propose_track_keywords({ asin, phrases:[...], marketplace }) — narrate first. Partial-success:
    per-item SUCCESS / ALREADY_TRACKED / ERROR. items[].key echoes the PHRASE, NOT the
    new keywordRankTrackerId.
 4. RESOLVE THE ID (required before labeling/tagging a just-added keyword): re-call
@@ -1008,7 +1011,7 @@ Latency: 1-3s per read; writes are immediate. NO dry-run, but every write is rev
 
 ## Workflow 17: Compass supplier book and SKU ordering settings (reads + writes, no dry-run)
 
-For "show my Compass suppliers", "which SKUs are not set up in Compass", "set the MOQ for these SKUs", "move these SKUs to another supplier". Compass is part of Titan, never a connector. The writes are HIL-approved, REAL/IMMEDIATE, and recompute nothing.
+For "show my Compass suppliers", "which SKUs are not set up in Compass", "set the MOQ for these SKUs", "move these SKUs to another supplier". Compass is part of Titan, never a connector. The writes are REAL/IMMEDIATE and recompute nothing. Narrate them first.
 
 ```
 1. get_compass_suppliers() — the supplier book and each supplier's supplierId.
