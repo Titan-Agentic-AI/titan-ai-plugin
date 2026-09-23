@@ -188,8 +188,8 @@ Result presentation: natural prose, e.g. "Set the MOQ for that SKU on Amazon.com
 
 | Tool | Result | Notes |
 |------|--------|-------|
-| `propose_create_sp_portfolio` | ✅ | State ∈ {ENABLED, PAUSED} only (no ARCHIVED). |
-| `propose_update_sp_portfolio` | ✅ | State ∈ {ENABLED, PAUSED} only. |
+| `propose_create_sp_portfolio` | ✅ | State ∈ {ENABLED} only. Probed 2026-09-23: Amazon answers any other value with `Member must satisfy enum value set: [ENABLED]`. A portfolio is created enabled and cannot be created paused. |
+| `propose_update_sp_portfolio` | ✅ | State ∈ {ENABLED} only. Amazon refuses PAUSED here: `Member must satisfy enum value set: [ENABLED]` (probed 2026-09-22). A portfolio cannot be paused through this tool. |
 | `propose_create_sp_campaign` | ✅ | Use `budget.budget`, not `budget.amount`. State ∈ {ENABLED, PAUSED}. |
 | `propose_update_sp_campaign` | ✅ | **No `startDate` and no `tags` on update** (verified rejected with 400). For placement bid modifiers, use `propose_update_sp_campaign_placement_modifiers`. |
 | `propose_update_sp_campaign_placement_modifiers` | ✅ | **NEW 2026-05-07.** Single-campaign target. Full upstream `dynamicBidding` shape — `strategy` REQUIRED, `placementBidding[]` optional. Amazon merges by placement key; `percentage: 0` removes the placement; `placementBidding: []` and omitting the key are no-ops. Pre-read rejects ARCHIVED + captures `oldValue`; post-read verifies the modifier landed. action_logs row written with both pre/post snapshots; `WRITE_VERIFICATION_FAILED` if observed ≠ requested (D2 mitigation). |
@@ -245,7 +245,9 @@ State casing varies by route. Mismatch fails at Zod validation before any networ
 |-------|------------|
 | **lowercase** | `propose_update_sb_keyword`, `propose_update_sb_target`, `propose_update_sb_ad_group_neg_keyword`, `propose_update_sb_ad_group_neg_target`, `propose_update_sd_campaign`, `propose_update_sd_ad_group`, `propose_update_sd_product_ad`, `propose_update_sd_target` |
 | UPPERCASE 3 values (ENABLED/PAUSED/ARCHIVED) | All SP routes, `propose_update_sb_campaign` |
-| UPPERCASE 2 values (ENABLED/PAUSED only) | `propose_create_sp_portfolio`, `propose_update_sp_portfolio`, `propose_create_sp_campaign`, `propose_create_sp_ad_group`, `propose_create_sp_product_ad`, `propose_update_sb_ad_group`, `propose_update_sb_ad` |
+| UPPERCASE 2 values (ENABLED/PAUSED only) | `propose_create_sp_campaign`, `propose_create_sp_ad_group`, `propose_create_sp_product_ad`, `propose_update_sb_ad_group`, `propose_update_sb_ad` |
+| `"ENABLED"` only on UPDATE | `propose_update_sp_portfolio` (probed 2026-09-22; PAUSED is refused, so there is no way to pause a portfolio) |
+| `"ENABLED"` only on CREATE, too | `propose_create_sp_portfolio` (probed 2026-09-23; both portfolio routes take ENABLED and nothing else) |
 | `"ENABLED"` only on create | `propose_create_sp_keyword`, `propose_create_sp_target`, `propose_create_sp_campaign_neg_keyword`, `propose_create_sp_ad_group_neg_keyword`, `propose_create_sp_campaign_neg_target`, `propose_create_sp_ad_group_neg_target` |
 | No `state` field at all (state implicit ENABLED) | `propose_create_sb_ad_group_neg_keyword`, `propose_create_sb_ad_group_neg_target` |
 

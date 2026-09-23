@@ -486,9 +486,11 @@ by the wrapper.
 
 For each `propose_update_*` tool, here are exactly the per-item fields the API accepts. Anything outside this list 400s (verified live 2026-05-02). Required fields are bold.
 
+The `propose_update_sp_portfolio` row was re-probed on 2026-09-22 (TIT-887) and narrowed: Amazon answers `state: "PAUSED"` with `Member must satisfy enum value set: [ENABLED]`, so that endpoint takes `ENABLED` and nothing else. The other rows were not re-probed.
+
 | Tool | Per-item fields |
 |------|-----------------|
-| `propose_update_sp_portfolio` | **`portfolioId`**, `name?`, `state?` (UPPERCASE 2-value), `budget?` |
+| `propose_update_sp_portfolio` | **`portfolioId`**, `name?`, `state?` (**`ENABLED` only**), `budget?` |
 | `propose_update_sp_campaign` | **`campaignId`**, `name?`, `portfolioId?`, `state?` (UPPERCASE 3-value), `budget?`, `endDate?` |
 | `propose_update_sp_campaign_placement_modifiers` | **`campaignId`**, **`dynamicBidding.strategy`** (`LEGACY_FOR_SALES`/`AUTO_FOR_SALES`/`MANUAL`), `dynamicBidding.placementBidding[]?` (`{placement, percentage}` — `percentage: 0` removes; merges by key) |
 | `propose_update_sp_ad_group` | **`adGroupId`**, `name?`, `state?` (UPPERCASE 3-value), `defaultBid?` |
@@ -778,7 +780,7 @@ Response:
 - **`currencyCode`** is auto-resolved from the active seller (`mainCurrency`) — omit it from `propose_*` bodies. **`marketplace`** defaults to the active seller's `mainSalesChannel` when omitted; to target a connected non-default marketplace, pass its exact storefront string from `get_marketplaces` (an unconnected value returns `MARKETPLACE_NOT_AVAILABLE`). See ACTIONS.md "Marketplace handling".
 - **Match-type casing**: SP uses UPPERCASE (`NEGATIVE_EXACT`/`NEGATIVE_PHRASE`); SB uses camelCase (`negativeExact`/`negativePhrase`). Positive variants on SP drop the prefix (`EXACT`/`PHRASE`/`BROAD`).
 - **State casing varies by route** — see the ACTIONS.md "State case quirks" table for the full mapping. Zod rejects mismatches before the network call.
-- **Create-state**: keywords / targets / negative-keywords accept only `"ENABLED"` on create. Campaigns / ad-groups / product-ads / portfolios accept `ENABLED` or `PAUSED`. To pause/archive after create, use the corresponding `propose_update_*` tool.
+- **Create-state**: keywords / targets / negative-keywords accept only `"ENABLED"` on create. Campaigns / ad-groups / product-ads accept `ENABLED` or `PAUSED`. To pause/archive after create, use the corresponding `propose_update_*` tool. **Portfolios are the exception on both halves**: create takes `ENABLED` only (probed 2026-09-23) and update takes `ENABLED` only (probed 2026-09-22), so a portfolio cannot be created paused, and cannot be paused or archived afterwards either.
 - **Budget shape**: campaigns use `budget.budget + budgetType`; portfolios use `budget.amount + policy`.
 - **Update-body fields**: see the "Update-body fields per endpoint" allowlist above. The API 400s on any field outside that list — Zod schemas mirror the swagger.
 
