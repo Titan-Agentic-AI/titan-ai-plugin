@@ -89,7 +89,7 @@ Critical rules summary (the ACTIONS.md file is the source of truth):
 1. Say what you are about to change, then call the `propose_*` tool(s). Bundle multiple calls when natural, but narrate the whole batch first: nothing is guaranteed to ask the user between them.
 2. Never encourage the user to enable "Always Allow" — it disables the safety check.
 3. Production runs with `dryRun: false` on every `propose_*` call — they are real Amazon writes, not simulations. Inspect the field on every response and say which mode occurred. (The `ACTIONS_FORCE_DRY_RUN` env that would force simulation is not set in production.)
-4. Inspect the multi-status `error[]` — empty `error` is the only success.
+4. Inspect the multi-status `error[]` — empty `error` is the only success. A top-level `success: false` (`WRITE_ALL_ITEMS_FAILED`) means no item landed and `error` is a code string, not a list: read the `message`, which names the key the per-item rows moved to.
 5. Never fabricate Amazon-side IDs (campaignId, adGroupId, etc.) — they come only from tool output.
 6. On MOST `propose_*` writes and `get_sp_bid_recommendations`, omit `marketplace` to use the active seller's default storefront; to target a connected non-default marketplace (multi-marketplace account), call `get_marketplaces` and pass its exact storefront string (e.g. `"Amazon.de"`). An unconnected value returns `MARKETPLACE_NOT_AVAILABLE`. FIVE WRITES DIFFER and neither half applies to them: `propose_track_keywords` and the four relevancy writes (`propose_create_relevancy_dataset`, `propose_add_relevancy_dataset_asins`, `propose_remove_relevancy_dataset_asins`, `propose_relevancy_ranking_update`) publish `marketplace` as REQUIRED, so omitting it is rejected before the call runs, and the four relevancy ones must ALSO name the storefront this session reads (the `set_active_seller` pin, else home) because their reads take no marketplace of their own — otherwise `MARKETPLACE_NOT_READABLE`, nothing written. Pin first with `set_active_seller({ storeName, marketplace })`, then pass that same value. See ACTIONS.md "Marketplace handling".
 
@@ -392,7 +392,7 @@ These response shapes fail validation:
 2. Reporting metrics without the Titan-grounded interpretation layer.
 3. Citing a source ID, lessonUrl, or framework name not in this turn's tool output.
 4. Skipping the knowledge call because the question "looks factual."
-5. Claiming an action succeeded without inspecting the multi-status `error[]`.
+5. Claiming an action succeeded without inspecting the multi-status `error[]`, or reading a `success: false` (`WRITE_ALL_ITEMS_FAILED`) result as if its `error` were that list.
 6. Fabricating Amazon-side IDs (campaignId, adGroupId, etc.).
 
 ## Error Recovery

@@ -91,7 +91,10 @@ DATA TRACK (sequential — each step feeds the next; batch items WITHIN a step):
    first (see Workflow 9b). strategy is REQUIRED.
 
 PER STEP:
-- Inspect the multi-status error[] — empty error[] is the only success. On a
+- Inspect the multi-status error[] — empty error[] is the only success. But if
+  success is the boolean false (error "WRITE_ALL_ITEMS_FAILED"), no item landed
+  and error is a code string, not a list: read the message, which names the key
+  the per-item rows moved to. On a
   partial failure, narrate per-item and retry ONLY the failed items.
 - Never fabricate campaignId / adGroupId — use only this turn's success[].
   Create with state:"ENABLED" (pause afterward if the user wants it dark).
@@ -209,7 +212,8 @@ WRITES (bundle in one response when natural; narrate the whole batch first):
    - propose_update_sd_target({targets:[{targetId, state:'paused'}]})
 
 → Acknowledge what you're about to do, then proceed. Inspect multi-status
-  `error[]` after each call.
+  `error[]` after each call; on `success: false` (`WRITE_ALL_ITEMS_FAILED`)
+  read the `message` instead, which names where the per-item rows moved.
 ```
 
 ## Workflow 8: Negative-Keyword Hygiene (writes)
@@ -395,7 +399,9 @@ WRITES:
     }]})  // max 100/call
 
 8. After the call returns, inspect the multi-status `error[]`. Empty error[] is the only
-   success. Note the success-id field per tool:
+   success. If `success` is the boolean `false` (`WRITE_ALL_ITEMS_FAILED`), no item landed
+   and `error` is a code string: read the `message`, which names where the rows moved.
+   Note the success-id field per tool:
    - SP campaign-level → success.campaignNegativeTargetingClauseId (long-form)
    - SP ad-group-level → success.targetId (short-form)
    - SB ad-group-level → success.targetId

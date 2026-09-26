@@ -72,7 +72,7 @@ In dry-run mode most tools echo `dry-run-<index>` as the entity id. `propose_upd
 
 ## Result presentation
 
-Write-tool responses come back as a programmatic envelope: `{ dryRun, correlationId, success: [...], error: [...], entityType }`. **The user never sees this envelope.** Field names, raw API enums, post-read confirmations, and correlation IDs are diagnostic plumbing — they belong in audit logs, not in chat.
+Write-tool responses come back as a programmatic envelope in one of two shapes. The normal one is `{ dryRun, correlationId, success: [...], error: [...], entityType }`. When NO item in the batch landed you get `{ correlationId, success: false, error: "<CODE>", message, ... }` instead — `success` is the boolean `false` and `error` is a CODE STRING rather than a list, so `error.length` tells you nothing. The per-item rows are still there but NOT at the top-level `error` key, and **where** they moved differs by tool. Do not guess, and do not go hunting: the `message` names the exact key to open, and also says whether upstream refused the batch or the outcome is UNKNOWN. Open the key it names and nothing else. **The user never sees either envelope.** Field names, raw API enums, post-read confirmations, and correlation IDs are diagnostic plumbing — they belong in audit logs, not in chat.
 
 The post-call message is **one or two sentences of natural prose** describing what changed on the user's account. Nothing else.
 
@@ -281,6 +281,7 @@ State casing varies by route. Mismatch fails at Zod validation before any networ
 | `INSUFFICIENT_SCOPE` | OAuth grant lacks `tools:write` (Amazon Ads writes only — the relevancy dataset writes auto-fall-back to the server credential and do not surface this) | Ask the user to re-link (`link_account`) with the missing scope |
 | `NEXUS_CALL_FAILED` | Nexus 5xx or transport error | Surface the error message; do NOT retry without LIST-ing first to verify state |
 | `error.length > 0` | Partial multi-status failure | Narrate per-item; some items succeeded, some failed |
+| `WRITE_ALL_ITEMS_FAILED` | No item in the batch landed — `success` is `false` and `error` is this string, not a list | Read `message` first: it names the key the per-item rows moved to, and says whether upstream refused the batch or the outcome is UNKNOWN. Never report the batch as applied, and on UNKNOWN never report it as not applied either |
 
 ## Common rollback recipes
 
@@ -300,7 +301,7 @@ A rollback is a write like any other. Narrate it before you call it, and do not 
 2. **Bundle only after narrating all of it.** Multiple `propose_*` calls in one response are fine for batch negation / batch pausing / multi-step plans, but nothing is guaranteed to interrupt you between them. Say what the whole batch will change before the first call, not after the last.
 3. **Acknowledge before acting.** Briefly say what you're about to do (one sentence is fine), then proceed.
 4. **No "Always Allow" nudge.**
-5. **Inspect the multi-status `error[]`.** Empty `error` is the only success.
+5. **Inspect the multi-status `error[]`.** Empty `error` is the only success — but first check that `error` IS a list. A top-level `success: false` means `error` is a code string and the rows have moved to the key the `message` names; see the envelope shapes above.
 6. **No fabricated IDs** — campaignId, adGroupId, keywordId, targetId all come only from this turn's tool results.
 7. **Marketplace defaults to the active seller's storefront** — omit `marketplace` unless you're targeting a connected non-default marketplace, in which case pass its exact storefront string from `get_marketplaces` (see "Marketplace handling").
 8. **Inspect `dryRun` on every response.** Production runs with `dryRun: false` — every call is real. `dryRun: true` only appears in non-prod environments and means simulation. Say which one occurred explicitly.
