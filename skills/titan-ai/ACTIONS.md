@@ -117,7 +117,7 @@ When a user asks to change a placement modifier:
 2. Call `propose_update_sp_campaign_placement_modifiers` with `{campaignId, dynamicBidding: {strategy, placementBidding: [...]}}`. **Strategy is REQUIRED** by Amazon — pass the existing one unless you intend to change it.
 3. Trust Amazon's merge-by-placement-key semantic: send only the placements you want to change; placements not mentioned are preserved (verified 2026-05-07). Send `{placement, percentage: 0}` to **remove** a single placement. `placementBidding: []` and omitting the key entirely are both no-ops — to clear all modifiers, send `0` for each currently-set placement.
 
-The tool reads the campaign before and after the write and only records SUCCESS in `action_logs` when the post-read confirms the change landed (D2 mitigation). Watch for `ARCHIVED_NOT_EDITABLE` (unarchive first via `propose_update_sp_campaign`) or `WRITE_VERIFICATION_FAILED` (Nexus 200 but post-read disagrees — forensics in `action_logs`).
+The tool reads the campaign before and after the write and only records SUCCESS in `action_logs` when the post-read confirms the change landed (D2 mitigation). Watch for `ARCHIVED_NOT_EDITABLE` (the campaign is archived, and archiving is permanent, so it cannot be changed) or `WRITE_VERIFICATION_FAILED` (Nexus 200 but post-read disagrees — forensics in `action_logs`).
 
 **Forbidden:**
 
@@ -194,17 +194,17 @@ Result presentation: natural prose, e.g. "Set the MOQ for that SKU on Amazon.com
 | `propose_update_sp_campaign` | ✅ | **No `startDate` and no `tags` on update** (verified rejected with 400). For placement bid modifiers, use `propose_update_sp_campaign_placement_modifiers`. |
 | `propose_update_sp_campaign_placement_modifiers` | ✅ | **NEW 2026-05-07.** Single-campaign target. Full upstream `dynamicBidding` shape — `strategy` REQUIRED, `placementBidding[]` optional. Amazon merges by placement key; `percentage: 0` removes the placement; `placementBidding: []` and omitting the key are no-ops. Pre-read rejects ARCHIVED + captures `oldValue`; post-read verifies the modifier landed. action_logs row written with both pre/post snapshots; `WRITE_VERIFICATION_FAILED` if observed ≠ requested (D2 mitigation). |
 | `propose_create_sp_campaign_neg_keyword` | ✅ | State must be `"ENABLED"` only. success.campaignNegativeKeywordId. |
-| `propose_update_sp_campaign_neg_keyword` | ✅ | **NEW 2026-05-05.** UPPERCASE 3-value state. success.campaignNegativeKeywordId. State-only update. |
+| `propose_update_sp_campaign_neg_keyword` | ✅ | **NEW 2026-05-05.** UPPERCASE state (ENABLED/PAUSED). success.campaignNegativeKeywordId. State-only update. |
 | `propose_create_sp_ad_group` | ✅ | State ∈ {ENABLED, PAUSED}. |
 | `propose_update_sp_ad_group` | ✅ | UPPERCASE state. Pause / change defaultBid / change name. |
 | `propose_create_sp_keyword` | ✅ | State must be `"ENABLED"` only — use update to pause after create. |
 | `propose_update_sp_keyword` | ✅ | UPPERCASE state. Pause / change bid. |
 | `propose_create_sp_ad_group_neg_keyword` | ✅ | State must be `"ENABLED"` only. success.keywordId. |
-| `propose_update_sp_ad_group_neg_keyword` | ✅ | **NEW 2026-05-05.** UPPERCASE 3-value state. success.**negativeKeywordId** (NOT keywordId). State-only. |
+| `propose_update_sp_ad_group_neg_keyword` | ✅ | **NEW 2026-05-05.** UPPERCASE state (ENABLED/PAUSED). success.**negativeKeywordId** (NOT keywordId). State-only. |
 | `propose_create_sp_campaign_neg_target` | ✅ | **NEW 2026-05-05.** Wrapper key `campaignNegativeTargetingClauses`. UPPERCASE_SNAKE expression types (`ASIN_SAME_AS`/`ASIN_BRAND_SAME_AS`); expression SINGULAR. State `ENABLED` only. success.**campaignNegativeTargetingClauseId** (long-form). |
-| `propose_update_sp_campaign_neg_target` | ✅ | **NEW 2026-05-05.** UPPERCASE 3-value state. State-only. |
+| `propose_update_sp_campaign_neg_target` | ✅ | **NEW 2026-05-05.** UPPERCASE state (ENABLED/PAUSED). State-only. |
 | `propose_create_sp_ad_group_neg_target` | ✅ | **NEW 2026-05-05.** Wrapper key `negativeTargetingClauses`. UPPERCASE_SNAKE expression types; expression SINGULAR. State `ENABLED` only. success.targetId (short-form). |
-| `propose_update_sp_ad_group_neg_target` | ✅ | **NEW 2026-05-05.** UPPERCASE 3-value state. State-only. |
+| `propose_update_sp_ad_group_neg_target` | ✅ | **NEW 2026-05-05.** UPPERCASE state (ENABLED/PAUSED). State-only. |
 | `propose_create_sp_target` | ✅ | State must be `"ENABLED"` only. |
 | `propose_update_sp_target` | ✅ | ASIN/category targets only — keyword IDs go through `propose_update_sp_keyword`. |
 | `propose_create_sp_product_ad` | ✅ | State ∈ {ENABLED, PAUSED}. |
@@ -218,6 +218,16 @@ Result presentation: natural prose, e.g. "Set the MOQ for that SKU on Amazon.com
 | `propose_update_sb_ad_group_neg_keyword` | ✅ | **NEW 2026-05-05. lowercase** state. Items require `keywordId` + `adGroupId` + `campaignId`. Flat-array response (same shape as SB keyword UPDATE). |
 | `propose_create_sb_ad_group_neg_target` | ✅ | **NEW 2026-05-05.** Body key `negativeTargets`; per-item field `expressions` (PLURAL). camelCase types (`asinSameAs`/`asinBrandSameAs`). No `state` field — implicit ENABLED. Envelope shape `{createTargetSuccessResults, createTargetErrorResults}` — adapter normalizes to canonical multi-status. |
 | `propose_update_sb_ad_group_neg_target` | ✅ | **NEW 2026-05-05. lowercase** state. Items require `targetId` + `adGroupId`. Envelope shape `{updateTargetSuccessResults, updateTargetErrorResults}` — same adapter as create. |
+| `propose_archive_sp_campaign` | ✅ | **NEW 2026-09-26. PERMANENT.** `campaigns:[{campaignId}]`, max 1000. Items key and id field match the entity's update tool. |
+| `propose_archive_sp_campaign_neg_keyword` | ✅ | **NEW 2026-09-26. PERMANENT.** `campaignNegativeKeywords:[{keywordId}]`, max 1000. success.campaignNegativeKeywordId. Items key and id field match the entity's update tool. |
+| `propose_archive_sp_campaign_neg_target` | ✅ | **NEW 2026-09-26. PERMANENT.** `campaignNegativeTargetingClauses:[{targetId}]`, max 1000. success.campaignNegativeTargetingClauseId. Items key and id field match the entity's update tool. |
+| `propose_archive_sp_ad_group` | ✅ | **NEW 2026-09-26. PERMANENT.** `adGroups:[{adGroupId}]`, max 1000. Items key and id field match the entity's update tool. |
+| `propose_archive_sp_keyword` | ✅ | **NEW 2026-09-26. PERMANENT.** `keywords:[{keywordId}]`, max 1000. Items key and id field match the entity's update tool. |
+| `propose_archive_sp_ad_group_neg_keyword` | ✅ | **NEW 2026-09-26. PERMANENT.** `negativeKeywords:[{keywordId}]`, max 1000. success.**negativeKeywordId**. Items key and id field match the entity's update tool. |
+| `propose_archive_sp_target` | ✅ | **NEW 2026-09-26. PERMANENT.** `targets:[{targetId}]`, max 1000. Items key and id field match the entity's update tool. |
+| `propose_archive_sp_ad_group_neg_target` | ✅ | **NEW 2026-09-26. PERMANENT.** `negativeTargetingClauses:[{targetId}]`, max 1000. success.targetId. Items key and id field match the entity's update tool. |
+| `propose_archive_sp_product_ad` | ✅ | **NEW 2026-09-26. PERMANENT.** `productAds:[{adId}]`, max 1000. Items key and id field match the entity's update tool. |
+| `propose_archive_sb_campaign` | ✅ | **NEW 2026-09-26. PERMANENT.** `campaigns:[{campaignId}]`, **max 10** (an eleventh id fails the whole batch). Items key and id field match the entity's update tool. |
 | `propose_update_sd_campaign` | ✅ | **lowercase** state — fixed 2026-05-02 (was incorrectly UPPERCASE in our schema). **No `startDate` on update**. |
 | `propose_update_sd_ad_group` | ✅ | **lowercase** state. Flat-array response. |
 | `propose_update_sd_product_ad` | ✅ | **lowercase** state. Flat-array response. |
@@ -244,12 +254,18 @@ State casing varies by route. Mismatch fails at Zod validation before any networ
 | Tools | State case |
 |-------|------------|
 | **lowercase** | `propose_update_sb_keyword`, `propose_update_sb_target`, `propose_update_sb_ad_group_neg_keyword`, `propose_update_sb_ad_group_neg_target`, `propose_update_sd_campaign`, `propose_update_sd_ad_group`, `propose_update_sd_product_ad`, `propose_update_sd_target` |
-| UPPERCASE 3 values (ENABLED/PAUSED/ARCHIVED) | All SP routes, `propose_update_sb_campaign` |
+| UPPERCASE 2 values (ENABLED/PAUSED; archive with the matching `propose_archive_*` tool, never `state: ARCHIVED`) | Every other SP update, `propose_update_sb_campaign` |
 | UPPERCASE 2 values (ENABLED/PAUSED only) | `propose_create_sp_campaign`, `propose_create_sp_ad_group`, `propose_create_sp_product_ad`, `propose_update_sb_ad_group`, `propose_update_sb_ad` |
 | `"ENABLED"` only on UPDATE | `propose_update_sp_portfolio` (probed 2026-09-22; PAUSED is refused, so there is no way to pause a portfolio) |
 | `"ENABLED"` only on CREATE, too | `propose_create_sp_portfolio` (probed 2026-09-23; both portfolio routes take ENABLED and nothing else) |
 | `"ENABLED"` only on create | `propose_create_sp_keyword`, `propose_create_sp_target`, `propose_create_sp_campaign_neg_keyword`, `propose_create_sp_ad_group_neg_keyword`, `propose_create_sp_campaign_neg_target`, `propose_create_sp_ad_group_neg_target` |
 | No `state` field at all (state implicit ENABLED) | `propose_create_sb_ad_group_neg_keyword`, `propose_create_sb_ad_group_neg_target` |
+
+### Archiving is its own tool, and it is permanent
+
+Amazon refuses `state: ARCHIVED` on every SP update and on `propose_update_sb_campaign`. Archive through the ten `propose_archive_*` tools instead: SP campaigns, ad groups, keywords, targets, product ads, both levels of negative keywords and negative targets, and SB campaigns. Each takes the same items key and id field as that entity's update tool. Portfolios cannot be archived at all. Sponsored Display and the lowercase SB keyword, target and negative updates are unchanged by this: their schemas still take a lowercase `state` that includes `archived`.
+
+There is no unarchive. Offer `state: PAUSED` first when the member's goal is to stop spend, and only archive what they explicitly asked to archive.
 
 ### Negative-keyword matchType case quirk
 
@@ -287,11 +303,11 @@ State casing varies by route. Mismatch fails at Zod validation before any networ
 
 | Action | How to undo |
 |--------|-------------|
-| Created campaign | `propose_update_sp_campaign` with `state: ARCHIVED` |
-| Created keyword | `propose_update_sp_target` with `state: ARCHIVED` (or per-entity equivalent) |
+| Created campaign | `propose_update_sp_campaign` with `state: PAUSED` (reversible), or `propose_archive_sp_campaign` (permanent) |
+| Created keyword | `propose_update_sp_keyword` with `state: PAUSED` (reversible), or `propose_archive_sp_keyword` (permanent); other entities have a matching `propose_archive_*` tool |
 | Updated budget | Re-`propose_update_sp_campaign` with the prior budget value |
-| Added neg keyword | `propose_update_sp_*_neg_keyword` (or `propose_update_sb_ad_group_neg_keyword`) with `state: ARCHIVED` (or `archived` for SB). |
-| Added neg target | `propose_update_sp_*_neg_target` (or `propose_update_sb_ad_group_neg_target`) with `state: ARCHIVED` (or `archived` for SB). |
+| Added neg keyword | `propose_archive_sp_campaign_neg_keyword` / `propose_archive_sp_ad_group_neg_keyword` (or `propose_update_sb_ad_group_neg_keyword` with `state: archived` for SB). |
+| Added neg target | `propose_archive_sp_campaign_neg_target` / `propose_archive_sp_ad_group_neg_target` (or `propose_update_sb_ad_group_neg_target` with `state: archived` for SB). |
 
 A rollback is a write like any other. Narrate it before you call it, and do not assume anything will ask the user first.
 

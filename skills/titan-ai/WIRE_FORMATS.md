@@ -79,7 +79,7 @@ Body shape:
 | `error` | Meaning | What to do |
 |---------|---------|-----------|
 | `CAMPAIGN_NOT_FOUND` | The campaignId is not in this seller's SP campaign list | Verify the id (search_for_ppc_campaigns) |
-| `ARCHIVED_NOT_EDITABLE` | Campaign is ARCHIVED — Amazon won't accept placement-modifier writes on archived campaigns | Unarchive first via `propose_update_sp_campaign` (state: ENABLED), then retry |
+| `ARCHIVED_NOT_EDITABLE` | Campaign is ARCHIVED — Amazon won't accept placement-modifier writes on archived campaigns | Do not retry. Archiving is permanent, so this campaign can no longer be changed; tell the member |
 | `WRITE_VERIFICATION_FAILED` | Nexus returned 200 but the post-read does not reflect the requested change | Check Seller Central; forensics in `action_logs.errorMessage` (JSON with `requested` / `observed` / `mismatches`) |
 
 ## `propose_create_sp_campaign_neg_keyword`
@@ -326,7 +326,7 @@ UPPERCASE state. Wrapped multi-status response.
 
 ## `propose_update_sp_campaign_neg_keyword` (NEW 2026-05-05)
 
-State-only update. UPPERCASE 3-value state. Wrapper key matches the create
+State-only update. UPPERCASE state (`ENABLED`/`PAUSED`). Wrapper key matches the create
 counterpart (`campaignNegativeKeywords`); success-id is `campaignNegativeKeywordId`.
 
 ```json
@@ -341,16 +341,17 @@ counterpart (`campaignNegativeKeywords`); success-id is `campaignNegativeKeyword
 
 ## `propose_update_sp_ad_group_neg_keyword` (NEW 2026-05-05)
 
-State-only update. UPPERCASE 3-value state. Wrapper key `negativeKeywords`. ⚠️
+State-only update. UPPERCASE state (`ENABLED`/`PAUSED`). Wrapper key `negativeKeywords`. ⚠️
 Response success-id is **`negativeKeywordId`**, NOT `keywordId` — verified
 empirically 2026-05-05 against Brendan's account.
 
 ```json
-// VERIFIED 2026-05-05 against Brendan's account (dry-run)
+// Shape verified 2026-05-05 against Brendan's account (dry-run). ARCHIVED is refused
+// here since TIT-887: archive with propose_archive_sp_ad_group_neg_keyword.
 {
   "negativeKeywords": [{
     "keywordId": "12345678901234",
-    "state":     "ARCHIVED"
+    "state":     "PAUSED"  
   }]
 }
 ```
@@ -396,7 +397,7 @@ must be `"ENABLED"` (omit to default). Response success-id is the long-form
 
 ## `propose_update_sp_campaign_neg_target` (NEW 2026-05-05 — state-only)
 
-State-only update. UPPERCASE 3-value state. Wrapper key matches the create
+State-only update. UPPERCASE state (`ENABLED`/`PAUSED`). Wrapper key matches the create
 counterpart; success-id is the long-form `campaignNegativeTargetingClauseId`.
 
 ```json
@@ -429,14 +430,15 @@ State must be `"ENABLED"`. Response success-id is the **short-form `targetId`**.
 
 ## `propose_update_sp_ad_group_neg_target` (NEW 2026-05-05 — state-only)
 
-State-only update. UPPERCASE 3-value state.
+State-only update. UPPERCASE state (`ENABLED`/`PAUSED`).
 
 ```json
-// VERIFIED 2026-05-05 against Brendan's account (dry-run)
+// Shape verified 2026-05-05 against Brendan's account (dry-run). ARCHIVED is refused
+// here since TIT-887: archive with propose_archive_sp_ad_group_neg_target.
 {
   "negativeTargetingClauses": [{
     "targetId": "12345678901234",
-    "state":    "ARCHIVED"
+    "state":    "PAUSED"  
   }]
 }
 ```
@@ -482,6 +484,29 @@ by the wrapper.
 }
 ```
 
+## `propose_archive_*` (NEW 2026-09-26, PERMANENT)
+
+Archiving is its own write on every SP entity and on SB campaigns: Amazon refuses `state: "ARCHIVED"` on those updates. Each archive tool takes the SAME items key and id field as the entity's update tool, and nothing else per item. The server sends upstream a flat id list in item order, so each result's `index` is the index of the item you sent.
+
+```json
+{ "campaigns": [{ "campaignId": "271652337312940" }, { "campaignId": "5323479633661" }] }
+```
+
+| Tool | Items key | Per-item field | Max per call | success id |
+|------|-----------|----------------|--------------|------------|
+| `propose_archive_sp_campaign` | `campaigns` | **`campaignId`** | 1000 | `campaignId` |
+| `propose_archive_sp_campaign_neg_keyword` | `campaignNegativeKeywords` | **`keywordId`** | 1000 | `campaignNegativeKeywordId` |
+| `propose_archive_sp_campaign_neg_target` | `campaignNegativeTargetingClauses` | **`targetId`** | 1000 | `campaignNegativeTargetingClauseId` |
+| `propose_archive_sp_ad_group` | `adGroups` | **`adGroupId`** | 1000 | `adGroupId` |
+| `propose_archive_sp_keyword` | `keywords` | **`keywordId`** | 1000 | `keywordId` |
+| `propose_archive_sp_ad_group_neg_keyword` | `negativeKeywords` | **`keywordId`** | 1000 | `negativeKeywordId` |
+| `propose_archive_sp_target` | `targets` | **`targetId`** | 1000 | `targetId` |
+| `propose_archive_sp_ad_group_neg_target` | `negativeTargetingClauses` | **`targetId`** | 1000 | `targetId` |
+| `propose_archive_sp_product_ad` | `productAds` | **`adId`** | 1000 | `adId` |
+| `propose_archive_sb_campaign` | `campaigns` | **`campaignId`** | **10** | `campaignId` |
+
+An unknown id comes back in `error[]` with `errorType: "entityNotFoundError"` and reason `ENTITY_NOT_FOUND`; the other ids in the batch are still archived. A dry run answers success for every id without looking them up, so a dry-run success does NOT mean the entities exist.
+
 ## Update-body fields per endpoint (allowlist)
 
 For each `propose_update_*` tool, here are exactly the per-item fields the API accepts. Anything outside this list 400s (verified live 2026-05-02). Required fields are bold.
@@ -491,13 +516,13 @@ The `propose_update_sp_portfolio` row was re-probed on 2026-09-22 (TIT-887) and 
 | Tool | Per-item fields |
 |------|-----------------|
 | `propose_update_sp_portfolio` | **`portfolioId`**, `name?`, `state?` (**`ENABLED` only**), `budget?` |
-| `propose_update_sp_campaign` | **`campaignId`**, `name?`, `portfolioId?`, `state?` (UPPERCASE 3-value), `budget?`, `endDate?` |
+| `propose_update_sp_campaign` | **`campaignId`**, `name?`, `portfolioId?`, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `budget?`, `endDate?` |
 | `propose_update_sp_campaign_placement_modifiers` | **`campaignId`**, **`dynamicBidding.strategy`** (`LEGACY_FOR_SALES`/`AUTO_FOR_SALES`/`MANUAL`), `dynamicBidding.placementBidding[]?` (`{placement, percentage}` — `percentage: 0` removes; merges by key) |
-| `propose_update_sp_ad_group` | **`adGroupId`**, `name?`, `state?` (UPPERCASE 3-value), `defaultBid?` |
-| `propose_update_sp_keyword` | **`keywordId`**, `state?` (UPPERCASE 3-value), `bid?` |
-| `propose_update_sp_target` | **`targetId`**, `state?` (UPPERCASE 3-value), `bid?` (ASIN/category targets only — keyword IDs go through `propose_update_sp_keyword`) |
-| `propose_update_sp_product_ad` | **`adId`**, `state?` (UPPERCASE 3-value) |
-| `propose_update_sb_campaign` | **`campaignId`**, `name?`, `state?` (UPPERCASE 3-value), `budget?`, `endDate?` |
+| `propose_update_sp_ad_group` | **`adGroupId`**, `name?`, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `defaultBid?` |
+| `propose_update_sp_keyword` | **`keywordId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `bid?` |
+| `propose_update_sp_target` | **`targetId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `bid?` (ASIN/category targets only — keyword IDs go through `propose_update_sp_keyword`) |
+| `propose_update_sp_product_ad` | **`adId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
+| `propose_update_sb_campaign` | **`campaignId`**, `name?`, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `budget?`, `endDate?` |
 | `propose_update_sb_ad_group` | **`adGroupId`**, `name?`, `state?` (UPPERCASE 2-value) |
 | `propose_update_sb_ad` | **`adId`**, `state?` (UPPERCASE 2-value) |
 | `propose_update_sb_keyword` | **`keywordId`**, **`adGroupId`**, **`campaignId`**, `state?` (lowercase 3-value), `bid?` |
@@ -506,13 +531,13 @@ The `propose_update_sp_portfolio` row was re-probed on 2026-09-22 (TIT-887) and 
 | `propose_update_sd_ad_group` | **`adGroupId`**, `name?`, `state?` (lowercase 3-value), `defaultBid?` |
 | `propose_update_sd_product_ad` | **`adId`**, `state?` (lowercase 3-value) |
 | `propose_update_sd_target` | **`targetId`**, `state?` (lowercase 3-value), `bid?` |
-| `propose_update_sp_campaign_neg_keyword` | **`keywordId`**, `state?` (UPPERCASE 3-value) |
-| `propose_update_sp_ad_group_neg_keyword` | **`keywordId`**, `state?` (UPPERCASE 3-value) |
+| `propose_update_sp_campaign_neg_keyword` | **`keywordId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
+| `propose_update_sp_ad_group_neg_keyword` | **`keywordId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
 | `propose_update_sb_ad_group_neg_keyword` | **`keywordId`**, **`adGroupId`**, **`campaignId`**, `state?` (lowercase 3-value) |
 | `propose_create_sp_campaign_neg_target` | **`campaignId`**, **`expression[]`** (UPPERCASE_SNAKE types — `ASIN_SAME_AS`/`ASIN_BRAND_SAME_AS`), `state?` (`"ENABLED"` only) |
-| `propose_update_sp_campaign_neg_target` | **`targetId`**, `state?` (UPPERCASE 3-value) |
+| `propose_update_sp_campaign_neg_target` | **`targetId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
 | `propose_create_sp_ad_group_neg_target` | **`campaignId`**, **`adGroupId`**, **`expression[]`** (UPPERCASE_SNAKE types), `state?` (`"ENABLED"` only) |
-| `propose_update_sp_ad_group_neg_target` | **`targetId`**, `state?` (UPPERCASE 3-value) |
+| `propose_update_sp_ad_group_neg_target` | **`targetId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
 | `propose_create_sb_ad_group_neg_target` | **`campaignId`**, **`adGroupId`**, **`expressions[]`** (PLURAL; camelCase types — `asinSameAs`/`asinBrandSameAs`). No `state` field. |
 | `propose_update_sb_ad_group_neg_target` | **`targetId`**, **`adGroupId`**, `state?` (lowercase 3-value) |
 
@@ -780,7 +805,7 @@ Response:
 - **`currencyCode`** is auto-resolved from the active seller (`mainCurrency`) — omit it from `propose_*` bodies. **`marketplace`** defaults to the active seller's `mainSalesChannel` when omitted; to target a connected non-default marketplace, pass its exact storefront string from `get_marketplaces` (an unconnected value returns `MARKETPLACE_NOT_AVAILABLE`). See ACTIONS.md "Marketplace handling".
 - **Match-type casing**: SP uses UPPERCASE (`NEGATIVE_EXACT`/`NEGATIVE_PHRASE`); SB uses camelCase (`negativeExact`/`negativePhrase`). Positive variants on SP drop the prefix (`EXACT`/`PHRASE`/`BROAD`).
 - **State casing varies by route** — see the ACTIONS.md "State case quirks" table for the full mapping. Zod rejects mismatches before the network call.
-- **Create-state**: keywords / targets / negative-keywords accept only `"ENABLED"` on create. Campaigns / ad-groups / product-ads accept `ENABLED` or `PAUSED`. To pause/archive after create, use the corresponding `propose_update_*` tool. **Portfolios are the exception on both halves**: create takes `ENABLED` only (probed 2026-09-23) and update takes `ENABLED` only (probed 2026-09-22), so a portfolio cannot be created paused, and cannot be paused or archived afterwards either.
+- **Create-state**: keywords / targets / negative-keywords accept only `"ENABLED"` on create. Campaigns / ad-groups / product-ads accept `ENABLED` or `PAUSED`. To pause after create, use the corresponding `propose_update_*` tool; to archive, use the matching `propose_archive_*` tool (Sponsored Display still archives through its update with `state: archived`). **Portfolios are the exception on both halves**: create takes `ENABLED` only (probed 2026-09-23) and update takes `ENABLED` only (probed 2026-09-22), so a portfolio cannot be created paused, and cannot be paused or archived afterwards either.
 - **Budget shape**: campaigns use `budget.budget + budgetType`; portfolios use `budget.amount + policy`.
 - **Update-body fields**: see the "Update-body fields per endpoint" allowlist above. The API 400s on any field outside that list — Zod schemas mirror the swagger.
 

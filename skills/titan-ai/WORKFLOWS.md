@@ -210,6 +210,17 @@ WRITES (bundle in one response when natural; narrate the whole batch first):
    - propose_update_sd_ad_group({adGroups:[{adGroupId, state:'paused'}]})
    - propose_update_sd_product_ad({productAds:[{adId, state:'paused'}]})
    - propose_update_sd_target({targets:[{targetId, state:'paused'}]})
+8. ARCHIVE only when the member explicitly asks for it. It is PERMANENT (no
+   unarchive), so offer the pauses above first. Each SP entity and SB
+   campaigns have a dedicated tool, keyed exactly like its update tool;
+   `state:'ARCHIVED'` on an SP or SB-campaign update is refused:
+   - propose_archive_sp_campaign({campaigns:[{campaignId}]})        // max 1000
+   - propose_archive_sp_ad_group({adGroups:[{adGroupId}]})
+   - propose_archive_sp_keyword({keywords:[{keywordId}]})
+   - propose_archive_sp_target({targets:[{targetId}]})
+   - propose_archive_sp_product_ad({productAds:[{adId}]})
+   - propose_archive_sb_campaign({campaigns:[{campaignId}]})        // max 10!
+   Portfolios cannot be archived. SD still archives with state:'archived'.
 
 → Acknowledge what you're about to do, then proceed. Inspect multi-status
   `error[]` after each call; on `success: false` (`WRITE_ALL_ITEMS_FAILED`)
@@ -267,8 +278,11 @@ REMEDIATION — pause / un-pause / archive existing neg-keywords (NEW 2026-05-05
    Where get_live_negative_keywords is not registered, step 8 is only actionable
    for a campaignNegativeKeywordId the user supplies.
 8. SP campaign-level: propose_update_sp_campaign_neg_keyword({campaignNegativeKeywords:[{
-     keywordId, state:'ARCHIVED'   // UPPERCASE
+     keywordId, state:'PAUSED'   // UPPERCASE
    }]})
+   To archive (PERMANENT) instead: propose_archive_sp_campaign_neg_keyword
+   ({campaignNegativeKeywords:[{keywordId}]}); ad-group level is
+   propose_archive_sp_ad_group_neg_keyword({negativeKeywords:[{keywordId}]}).
 9. SP ad-group-level: propose_update_sp_ad_group_neg_keyword({negativeKeywords:[{
      keywordId, state:'PAUSED'   // UPPERCASE; success-id is `negativeKeywordId`
    }]})
@@ -408,8 +422,11 @@ WRITES:
 
 REMEDIATION — pause / un-pause / archive existing neg-targets:
 9. SP campaign: propose_update_sp_campaign_neg_target({campaignNegativeTargetingClauses:[{
-     targetId, state: 'ARCHIVED'   // UPPERCASE
+     targetId, state: 'PAUSED'   // UPPERCASE
    }]})
+   To archive (PERMANENT) instead: propose_archive_sp_campaign_neg_target
+   ({campaignNegativeTargetingClauses:[{targetId}]}); ad-group level is
+   propose_archive_sp_ad_group_neg_target({negativeTargetingClauses:[{targetId}]}).
 10. SP ad-group: propose_update_sp_ad_group_neg_target({negativeTargetingClauses:[{
       targetId, state: 'PAUSED'   // UPPERCASE
     }]})

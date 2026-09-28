@@ -128,16 +128,28 @@ For the per-`propose_*` body shapes (campaign create, target update, keyword neg
 | `propose_update_sb_target` | Update SB targets (NEW 2026-05-02 — **lowercase state**, requires targetId+adGroupId+campaignId) |
 | `propose_update_sd_target` | Update SD targets (NEW 2026-05-02 — **lowercase state**) |
 | `propose_create_sb_ad_group_neg_keyword` | SB ad-group-level negative keywords (NEW 2026-05-02 — **camelCase matchType** `negativeExact`/`negativePhrase`) |
-| `propose_update_sp_campaign_neg_keyword` | Pause / un-pause / archive existing campaign-level negative keywords (NEW 2026-05-05) |
-| `propose_update_sp_ad_group_neg_keyword` | Pause / un-pause / archive existing ad-group-level negative keywords (NEW 2026-05-05) |
+| `propose_update_sp_campaign_neg_keyword` | Pause / un-pause existing campaign-level negative keywords (NEW 2026-05-05) |
+| `propose_update_sp_ad_group_neg_keyword` | Pause / un-pause existing ad-group-level negative keywords (NEW 2026-05-05) |
 | `propose_update_sb_ad_group_neg_keyword` | Pause / un-pause / archive existing SB ad-group negative keywords (NEW 2026-05-05 — **lowercase state**, requires keywordId+adGroupId+campaignId) |
 | `propose_create_sp_campaign_neg_target` | Add campaign-level negative targets (ASIN/brand exclusions; max 500/call) (NEW 2026-05-05) |
-| `propose_update_sp_campaign_neg_target` | Pause / un-pause / archive existing campaign-level negative targets (NEW 2026-05-05) |
+| `propose_update_sp_campaign_neg_target` | Pause / un-pause existing campaign-level negative targets (NEW 2026-05-05) |
 | `propose_create_sp_ad_group_neg_target` | Add ad-group-level negative targets (ASIN/brand exclusions; max 500/call) (NEW 2026-05-05) |
-| `propose_update_sp_ad_group_neg_target` | Pause / un-pause / archive existing ad-group-level negative targets (NEW 2026-05-05) |
+| `propose_update_sp_ad_group_neg_target` | Pause / un-pause existing ad-group-level negative targets (NEW 2026-05-05) |
 | `propose_create_sb_ad_group_neg_target` | Add SB ad-group-level negative targets (NEW 2026-05-05 — **camelCase types** `asinSameAs`/`asinBrandSameAs`, body uses `expressions` PLURAL) |
 | `propose_update_sb_ad_group_neg_target` | Pause / un-pause / archive existing SB ad-group negative targets (NEW 2026-05-05 — **lowercase state**, requires targetId+adGroupId) |
+| `propose_archive_sp_campaign` | Archive SP campaigns (PERMANENT, max 1000/call) (NEW 2026-09-26) |
+| `propose_archive_sp_campaign_neg_keyword` | Archive campaign-level SP negative keywords (PERMANENT) (NEW 2026-09-26) |
+| `propose_archive_sp_campaign_neg_target` | Archive campaign-level SP negative targets (PERMANENT) (NEW 2026-09-26) |
+| `propose_archive_sp_ad_group` | Archive SP ad groups (PERMANENT) (NEW 2026-09-26) |
+| `propose_archive_sp_keyword` | Archive SP keywords (PERMANENT) (NEW 2026-09-26) |
+| `propose_archive_sp_ad_group_neg_keyword` | Archive ad-group-level SP negative keywords (PERMANENT) (NEW 2026-09-26) |
+| `propose_archive_sp_target` | Archive SP product/category targets (PERMANENT) (NEW 2026-09-26) |
+| `propose_archive_sp_ad_group_neg_target` | Archive ad-group-level SP negative targets (PERMANENT) (NEW 2026-09-26) |
+| `propose_archive_sp_product_ad` | Archive SP product ads (PERMANENT) (NEW 2026-09-26) |
+| `propose_archive_sb_campaign` | Archive Sponsored Brands campaigns (PERMANENT, **max 10/call**) (NEW 2026-09-26) |
 | `get_sp_bid_recommendations` | Get suggested bids (no writes — read-only) |
+
+> **Archiving is permanent and has its own tools.** Amazon refuses `state: ARCHIVED` on every SP update and on `propose_update_sb_campaign`; use the matching `propose_archive_*` tool, which takes the same items key and id field as the update. There is no unarchive, so offer `state: PAUSED` first. Portfolios cannot be archived.
 
 > **Note:** `propose_update_sp_campaign_placement_modifiers` (re-enabled 2026-05-07) sets/changes/removes placement bid modifiers (TOP_OF_SEARCH, PRODUCT_PAGES, REST_OF_SEARCH) on a Sponsored Products campaign. **Strategy is REQUIRED** by Amazon — pass the campaign's current `biddingStrategy` (from `search_for_ppc_campaigns` or `get_account_ppc_metrics_by_campaign`) unless you intend to also change the strategy.
 >
