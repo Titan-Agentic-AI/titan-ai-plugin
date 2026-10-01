@@ -987,6 +987,8 @@ For "which competitors should I track for <ASIN>?" / "set up relevancy tracking 
    product's category). Confirm them with the operator.
 3. propose_create_relevancy_dataset({ datasetName, asin, competitorAsins:[...], marketplace })
    — IMMEDIATE, IRREVERSIBLE (no delete). Narrate it first. Returns numeric datasetId.
+   ONLY if step 1 showed no dataset for the ASIN: a product that already has one is
+   refused with RELEVANCY_DATASET_EXISTS whatever datasetName you pick, so use it instead.
 4. get_keyword_relevancy({ asin, dataset:{ id: <new datasetId> } }) — the new dataset
    is queryable immediately (no processing delay). Analyze relevancy + competitor ranks.
 5. Refine: propose_add_relevancy_dataset_asins / propose_remove_relevancy_dataset_asins

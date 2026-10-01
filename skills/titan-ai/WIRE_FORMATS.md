@@ -742,7 +742,7 @@ Real shapes (probe-verified gomezfit / A20KO674Z5KLVG, 2026-05-30):
 
 `sellerId` is injected from the active seller — never send it. All four are internal-api calls; the two `mark_*` tools are HTTP `PATCH`, the two reads are `POST`.
 
-**`get_alerts` request** (startDate/endDate required, inclusive, range ≤180 days):
+**`get_alerts` request** (startDate/endDate required, inclusive, range ≤180 days counting both endpoints, so endDate is at most 179 days after startDate):
 ```json
 {
   "startDate": "2026-05-01",

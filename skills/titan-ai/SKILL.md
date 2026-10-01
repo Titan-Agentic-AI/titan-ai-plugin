@@ -161,7 +161,7 @@ The first knowledge/research writes — they modify the seller's Titan Tools **K
 
 | Tool | Purpose |
 |------|---------|
-| `propose_create_relevancy_dataset` | Create a Keyword Relevancy dataset for one of the seller's own ASINs, seeded with 1-10 competitor ASINs. Returns the numeric `datasetId` (usable immediately with `get_keyword_relevancy`). |
+| `propose_create_relevancy_dataset` | Create a Keyword Relevancy dataset for one of the seller's own ASINs, seeded with 1-10 competitor ASINs. Returns the numeric `datasetId` (usable immediately with `get_keyword_relevancy`). Check `get_keyword_relevancy` `availableDatasets` first: a product that already has a dataset is refused with `RELEVANCY_DATASET_EXISTS` whatever the name. |
 | `propose_add_relevancy_dataset_asins` | Add 1-10 competitor ASINs to an existing dataset (by `dataSetId` — the numeric datasetId from `get_keyword_relevancy`). |
 | `propose_remove_relevancy_dataset_asins` | Remove 1-10 ASINs from an existing dataset (by `dataSetId`). |
 | `propose_relevancy_ranking_update` | Trigger a REAL keyword-ranking recompute for a dataset (by `datasetId`). Once/24h, ASYNC — returns `{success}` immediately; poll `get_relevancy_ranking_status` (`{ongoing}`) before re-reading. |
@@ -349,8 +349,8 @@ Read-only views of the Amazon listing/inventory/fee alerts Titan Tools detects f
 
 | Tool | Purpose |
 |------|---------|
-| `get_alerts` | List alerts. Params: `startDate`, `endDate` (YYYY-MM-DD, inclusive, range ≤180 days — both required), `marketplaces` (storefront URLs e.g. 'Amazon.com'), `asins`, `skus`, `parentAsins`, `eventCategories` (SUPPRESSION/INDEXING/LISTING/FEES/INVENTORY), `eventTypes` (24 values incl. OUT_OF_STOCK, STOCK_RUNNING_LOW_30/60/90, FBA_FEE_CHANGED, REFERRAL_FEE_CHANGED, LISTING_ISSUES, STATUS_CHANGED), `types` (ALERT/NOTE), `readStatus` (READ/UNREAD), `sortBy` (datetime/salesChannel/eventCategory/eventType/type/read), `sortDirection` (ASC/DESC), `page`, `pageSize` (max 200). Returns `{ items, total, page, pageSize, totalPages, hasNext }`. |
-| `get_alerts_unread_count` | Count unread alerts matching a filter. Params: `startDate`, `endDate` (≤180 days, required) + the same filters as `get_alerts` (no readStatus / sort / paging). Returns `{ totalUnread }`. Use it for a quick unread badge before paging `get_alerts`. |
+| `get_alerts` | List alerts. Params: `startDate`, `endDate` (YYYY-MM-DD, inclusive, range ≤180 days counting both endpoints, so endDate is at most 179 days after startDate — both required), `marketplaces` (storefront URLs e.g. 'Amazon.com'), `asins`, `skus`, `parentAsins`, `eventCategories` (SUPPRESSION/INDEXING/LISTING/FEES/INVENTORY), `eventTypes` (24 values incl. OUT_OF_STOCK, STOCK_RUNNING_LOW_30/60/90, FBA_FEE_CHANGED, REFERRAL_FEE_CHANGED, LISTING_ISSUES, STATUS_CHANGED), `types` (ALERT/NOTE), `readStatus` (READ/UNREAD), `sortBy` (datetime/salesChannel/eventCategory/eventType/type/read), `sortDirection` (ASC/DESC), `page`, `pageSize` (max 200). Returns `{ items, total, page, pageSize, totalPages, hasNext }`. |
+| `get_alerts_unread_count` | Count unread alerts matching a filter. Params: `startDate`, `endDate` (≤180 days counting both endpoints, so endDate is at most 179 days after startDate; required) + the same filters as `get_alerts` (no readStatus / sort / paging). Returns `{ totalUnread }`. Use it for a quick unread badge before paging `get_alerts`. |
 
 **Fee-alert interpretation (don't just relay — interpret):**
 1. `REFERRAL_FEE_CHANGED` is **deterministic** — it tracks the actual sale price per transaction. Swings come from promos / coupons / B2B pricing, **not** a fee error. Don't call it "a pricing error to verify" or "noise to chase". Flag it only if Amazon moved the ASIN into a different referral-fee **category %**.
