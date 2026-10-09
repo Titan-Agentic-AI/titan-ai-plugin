@@ -617,7 +617,7 @@ Internal-api, x-api-key. Read-style tools (read-only). `sellerId` is auto-resolv
 
 ### `create_custom_report` body
 
-Top-level: `marketplaces` (array of storefront URLs e.g. `["Amazon.com"]` — NOT marketplace IDs; defaults to the active seller's `mainSalesChannel` when omitted), `brands?`, `asins?`, `updateFrequency` (`ONCE` default | `DAILY` | `WEEKLY` | `MONTHLY` | `QUARTERLY` | `YEARLY`), and `reportConfig`. `reportConfig` = `currencyCode`, `reportType`, `dateRangeType`, `fileType` (`CSV`|`XLSX` — `get_custom_report` normally reads a `CSV` back as rows, but rows can still be absent if the file could not be verified as a single table, in which case you get a link instead; choose `XLSX` only when a spreadsheet file to download and keep is specifically wanted, since `XLSX` always comes back as a link), optional `dateRangeConfig`. Returns `{ reportId }`; the report generates asynchronously — poll with `get_custom_report`.
+Top-level: `marketplaces` (array of storefront URLs e.g. `["Amazon.com"]` — NOT marketplace IDs; defaults to the active seller's `mainSalesChannel` when omitted), `brands?`, `asins?`, and `reportConfig`. There is no schedule field: every report is a one-off, and a body carrying a recurring `updateFrequency` is refused. `reportConfig` = `currencyCode`, `reportType`, `dateRangeType`, `fileType` (`CSV`|`XLSX` — `get_custom_report` normally reads a `CSV` back as rows, but rows can still be absent if the file could not be verified as a single table, in which case you get a link instead; choose `XLSX` only when a spreadsheet file to download and keep is specifically wanted, since `XLSX` always comes back as a link), optional `dateRangeConfig`. Returns `{ reportId }`; the report generates asynchronously — poll with `get_custom_report`.
 
 **Per-`reportType` date-range matrix** (wrong combo → upstream 400):
 
@@ -626,16 +626,15 @@ Top-level: `marketplaces` (array of storefront URLs e.g. `["Amazon.com"]` — NO
 | DASHBOARD_METRICS / DST_METRICS / PPC_SEARCH_TERM / PPC_CAMPAIGNS | CUSTOM_DATES, LAST_MONTH, LAST_YEAR, LAST_7_DAYS, LAST_30_DAYS, LAST_60_DAYS | CUSTOM_DATES → `startDate`+`endDate` (no `periodicity`); presets → omit |
 | DASHBOARD_PROFIT_AND_LOSS_METRICS | CUSTOM_DATES, LAST_12_MONTHS_BY_MONTH, THIS_YEAR_BY_MONTH, LAST_YEAR_BY_MONTH, LAST_3_MONTHS_BY_WEEK, LAST_30_DAYS_BY_DAY | CUSTOM_DATES → `startDate`+`endDate`+`periodicity` (DAY/WEEK/MONTH); presets → omit |
 | PPC_AUDIT | LAST_8_FULL_WEEKS only | omit |
-| SEARCH_QUERY_PERFORMANCE | CUSTOM_DATES_SQP only | `periodicity`(WEEK/MONTH/QUARTER)+`year`+`periodRange`; NO `startDate`/`endDate`; exactly 1 marketplace + 1 ASIN; ONCE only |
+| SEARCH_QUERY_PERFORMANCE | CUSTOM_DATES_SQP only | `periodicity`(WEEK/MONTH/QUARTER)+`year`+`periodRange`; NO `startDate`/`endDate`; exactly 1 marketplace + 1 ASIN |
 
-Global: `CUSTOM_DATES` / `CUSTOM_DATES_SQP` require `updateFrequency: ONCE`. Day-count rules (P&L DAY ≤ 32d / WEEK ≥ 9d / MONTH ≥ 33d) and the SQP year-floor (≤16 months) + fully-completed-period checks are enforced upstream and surface as a readable 400.
+Day-count rules (P&L DAY ≤ 32d / WEEK ≥ 9d / MONTH ≥ 33d) and the SQP year-floor (≤16 months) + fully-completed-period checks are enforced upstream and surface as a readable 400.
 
-Preset range (dashboard metrics, last 7 days, recurring daily):
+Preset range (dashboard metrics, last 7 days):
 
 ```json
 {
   "marketplaces": ["Amazon.com"],
-  "updateFrequency": "DAILY",
   "reportConfig": {
     "currencyCode": "USD",
     "reportType": "DASHBOARD_METRICS",
@@ -645,12 +644,11 @@ Preset range (dashboard metrics, last 7 days, recurring daily):
 }
 ```
 
-Custom dates (P&L, monthly buckets, one-time):
+Custom dates (P&L, monthly buckets):
 
 ```json
 {
   "marketplaces": ["Amazon.com"],
-  "updateFrequency": "ONCE",
   "reportConfig": {
     "currencyCode": "USD",
     "reportType": "DASHBOARD_PROFIT_AND_LOSS_METRICS",
@@ -661,13 +659,12 @@ Custom dates (P&L, monthly buckets, one-time):
 }
 ```
 
-SQP (weekly — exactly one ASIN + one marketplace, one-time):
+SQP (weekly — exactly one ASIN + one marketplace):
 
 ```json
 {
   "marketplaces": ["Amazon.com"],
   "asins": ["B07PARENT01"],
-  "updateFrequency": "ONCE",
   "reportConfig": {
     "currencyCode": "USD",
     "reportType": "SEARCH_QUERY_PERFORMANCE",
@@ -695,9 +692,9 @@ Response `status` ∈ `IN_PROGRESS | DONE | FAILED | CANCELLED | DELETED | NO_DA
 
 `downloadUrl` = `https://app.titantools.com/reports/download?source=<signed token>` — a **self-authenticating bearer link**: it opens with no Titan Tools login and has no per-link expiry. Treat it as a secret — hand it to the operator, do not post it anywhere public. Reading the rows yourself no longer requires fetching this link; the tool result already carries the rows when they are available.
 
-**Latency**: DASHBOARD / DST / PPC report types reach `DONE` within seconds; `SEARCH_QUERY_PERFORMANCE` ~25s. A recurring `create` also materializes the first run immediately, so the poll behaves identically to a one-time report.
+**Latency**: DASHBOARD / DST / PPC report types reach `DONE` within seconds; `SEARCH_QUERY_PERFORMANCE` ~25s.
 
-**No lifecycle CRUD**: upstream exposes only create + download. A created report — including a recurring schedule — cannot be listed, edited, or cancelled via these tools. Confirm a recurring schedule with the operator BEFORE creating it.
+**One-off only**: upstream exposes only create + download, and these tools create one-off reports only. A report on a repeat is not available from a connected app; it is a scheduled task in Titan AI chat.
 
 ## `get_awd_inventory` / `get_awd_inbound_shipments` / `get_awd_replenishment_orders` — wire format (AWD live reads, US-only)
 
@@ -820,12 +817,20 @@ Distinct from the Amazon Ads writes above: these hit the Keyword Relevancy dashb
   "marketplace": "Amazon.com",     // REQUIRED — the storefront written on
   "competitorAsins": ["B0B96J9LL8", "B001VGC0AA"] }  // 1-10, runtime-required
 //  -> { "datasetId": 187798 }      // NUMBER (not the UUID the swagger implies)
+//  -> when upstream errors but this call made the dataset anyway (TIT-1006):
+//     { "created": true, "datasetId": 192065, "name": "...", "competitorCount": 9,
+//       "competitors": { "added": [...], "alreadyPresent": [], "refused": [{ "asin": "B0GM2T8P1S", "reason": "..." }] },
+//       "createError": "Product ... already exists!", "note": "..." }
 
 // propose_add_relevancy_dataset_asins  /  propose_remove_relevancy_dataset_asins
 { "dataSetId": 187798,              // camelCase `dataSetId` (capital S) — NOT `datasetId`
   "marketplace": "Amazon.com",      // REQUIRED — the storefront written on
-  "asins": ["B001VGC0AA"] }         // 1-10
+  "asins": ["B001VGC0AA"],          // 1-10
+  "asin": "B0B3V3791F" }           // add only, optional: the PRODUCT, for the re-read; never sent upstream
 //  -> { "success": true }
+//  -> add, after upstream refused the batch (TIT-1006):
+//     { "success": true, "sentOneAtATime": true, "added": [...], "alreadyPresent": [...],
+//       "refused": [{ "asin": "B0GM2T8P1S", "reason": "No data found for ASIN B0GM2T8P1S. ..." }], "note": "..." }
 ```
 
 - **`dataSetId` camelCase quirk**: the read tool (`get_keyword_relevancy`) returns datasets keyed on `datasetId`, but the add/remove write body wants `dataSetId` (capital S). Use the numeric value from `availableDatasets[].datasetId`.

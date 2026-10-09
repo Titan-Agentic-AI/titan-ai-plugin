@@ -888,9 +888,9 @@ KNOWLEDGE TRACK:
 
 Latency: 1 tool call, ~6s for the 365-day window probe.
 
-## Workflow 14: Downloadable / Scheduled Custom Report (read-style)
+## Workflow 14: Downloadable Custom Report, one-off (read-style)
 
-For "give me a CSV of …", "export my … to a spreadsheet", or "set up a weekly/monthly … report". This produces a **downloadable file**, and `get_custom_report` also reads it back as rows when the file could be verified as a single table (some report types are always a link either way), so it can sometimes answer analysis questions too — but the metric tools answer in one call, so prefer those when they cover the question. See the create/download wire format + per-type matrix in [`WIRE_FORMATS.md`](./WIRE_FORMATS.md).
+For "give me a CSV of …" or "export my … to a spreadsheet". This produces a **downloadable file**, and `get_custom_report` also reads it back as rows when the file could be verified as a single table (some report types are always a link either way), so it can sometimes answer analysis questions too — but the metric tools answer in one call, so prefer those when they cover the question. See the create/download wire format + per-type matrix in [`WIRE_FORMATS.md`](./WIRE_FORMATS.md).
 
 ```
 DATA TRACK:
@@ -898,11 +898,11 @@ DATA TRACK:
 2. Pick reportType + dateRangeType for the ask (one of 7 types; each allows
    only certain date ranges — see the WIRE_FORMATS matrix). For
    SEARCH_QUERY_PERFORMANCE you need exactly one ASIN + one marketplace,
-   periodicity+year+periodRange, ONCE only.
-3. RECURRING? (updateFrequency ≠ ONCE) — CONFIRM the schedule with the operator
-   FIRST. Recurring reports cannot be listed, edited, or cancelled via the API,
-   so a mistaken DAILY report keeps generating with no in-tool off switch.
-4. create_custom_report({ marketplaces, asins?, updateFrequency?, reportConfig })
+   periodicity+year+periodRange.
+3. EVERY WEEK / MONTH? Not available here: every report is a one-off. Say so
+   and offer it once; a report on a repeat is a scheduled task in Titan AI chat.
+   Never create the same report again to imitate a schedule.
+4. create_custom_report({ marketplaces, asins?, reportConfig })
    → returns { reportId }.
 5. get_custom_report({ reportId })  — SINGLE poll, the tool does not loop:
    → IN_PROGRESS: say it's generating, call again in ~5-25s
@@ -923,8 +923,7 @@ KNOWLEDGE TRACK:
    interpretation layer alongside the rows.
 
 → Answer from the rows, name what's in the file and its date range, hand over
-  the download link for the file itself, and (for recurring) restate the
-  cadence + the no-edit/no-cancel caveat. Sources section is still mandatory.
+  the download link for the file itself. Sources section is still mandatory.
 ```
 
 Latency: create is instant; the single poll is seconds (SQP ~25s).
@@ -987,10 +986,14 @@ For "which competitors should I track for <ASIN>?" / "set up relevancy tracking 
    product's category). Confirm them with the operator.
 3. propose_create_relevancy_dataset({ datasetName, asin, competitorAsins:[...], marketplace })
    — IMMEDIATE, IRREVERSIBLE (no delete). Narrate it first. Returns numeric datasetId.
-   ONLY if step 1 showed no dataset for the ASIN: a product that already has one is
-   refused with RELEVANCY_DATASET_EXISTS whatever datasetName you pick, so use it instead.
+   ONLY if step 1 showed no dataset for the ASIN: a create on a product that already
+   has one may be refused with RELEVANCY_DATASET_EXISTS, so use it instead.
 4. get_keyword_relevancy({ asin, dataset:{ id: <new datasetId> } }) — the new dataset
    is queryable immediately (no processing delay). Analyze relevancy + competitor ranks.
+   If the create errors but returns created: true, the dataset WAS made: report it as
+   created and name each competitor in competitors.refused with its own reason: no
+   data in Titan's keyword relevancy service, or the dataset already holding its
+   maximum number of ASINs (never as invalid).
 5. Refine: propose_add_relevancy_dataset_asins / propose_remove_relevancy_dataset_asins
    ({ dataSetId, asins:[...], marketplace }) to adjust the competitor set, then re-read.
 ```

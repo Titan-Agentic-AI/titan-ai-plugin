@@ -161,8 +161,8 @@ The first knowledge/research writes — they modify the seller's Titan Tools **K
 
 | Tool | Purpose |
 |------|---------|
-| `propose_create_relevancy_dataset` | Create a Keyword Relevancy dataset for one of the seller's own ASINs, seeded with 1-10 competitor ASINs. Returns the numeric `datasetId` (usable immediately with `get_keyword_relevancy`). Check `get_keyword_relevancy` `availableDatasets` first: a product that already has a dataset is refused with `RELEVANCY_DATASET_EXISTS` whatever the name. |
-| `propose_add_relevancy_dataset_asins` | Add 1-10 competitor ASINs to an existing dataset (by `dataSetId` — the numeric datasetId from `get_keyword_relevancy`). |
+| `propose_create_relevancy_dataset` | Create a Keyword Relevancy dataset for one of the seller's own ASINs, seeded with 1-10 competitor ASINs. Returns the numeric `datasetId` (usable immediately with `get_keyword_relevancy`). Check `availableDatasets` in `get_keyword_relevancy` first: a create on a product that already has a dataset may be refused with `RELEVANCY_DATASET_EXISTS`. |
+| `propose_add_relevancy_dataset_asins` | Add 1-10 competitor ASINs to an existing dataset (by `dataSetId` — the numeric datasetId from `get_keyword_relevancy`; pass the product `asin` too). If upstream refuses the batch it adds them one at a time and returns `added` / `alreadyPresent` / `refused`: name each refused ASIN to the member with its own `reason` (no data in Titan's keyword relevancy service, or the dataset already holding its maximum number of ASINs), never as invalid. |
 | `propose_remove_relevancy_dataset_asins` | Remove 1-10 ASINs from an existing dataset (by `dataSetId`). |
 | `propose_relevancy_ranking_update` | Trigger a REAL keyword-ranking recompute for a dataset (by `datasetId`). Once/24h, ASYNC — returns `{success}` immediately; poll `get_relevancy_ranking_status` (`{ongoing}`) before re-reading. |
 | `propose_relevancy_cache_purge` | Purge a dataset's cached ranking results (by `datasetId`). Takes no marketplace. Returns `{success}`. |
@@ -223,7 +223,7 @@ Change Compass, not the Amazon account. Narrate it like every other write. **No 
 
 | Tool | Purpose |
 |------|---------|
-| `titan_lessons` | Search Titan Network training content. **Default platform scope: Amazon only** — Shopify Workparty, Walmart, and non-Amazon-channels masterclass spaces are excluded. Pass `includePlatforms: ['shopify' \| 'walmart' \| 'non-amazon-channels']` to surface non-Amazon content when the user is explicitly asking about that platform. |
+| `titan_lessons` | Search Titan Network training content. The library is Amazon-focused but also holds lessons for other channels (Shopify, Walmart, TikTok Shop): never present a non-Amazon lesson as Amazon guidance. |
 | `community_feed` | Search community discussions and member insights |
 | `whatsapp_conversations` | Search WhatsApp group discussions for tactical tips |
 | `fetch_framework` | Get teaching frameworks. Slugs: `plog` (Product Launch Optimization), `ppc_3_0` (PPC 3.0 tactics), `states_and_drivers` (posture/priority matrix), `naming_convention` (deterministic campaign-name grammar + volume tokens). |
@@ -316,11 +316,11 @@ Highlights:
 
 ### Reports (downloadable files)
 
-`create_custom_report` + `get_custom_report` generate a **downloadable CSV/XLSX file** (optionally on a recurring schedule). Choose `fileType: 'CSV'` when you intend to read the report yourself, since `get_custom_report` reads a finished CSV file back to you as rows when the file could be verified as a single table (some report types are always a link either way), so it can sometimes answer in-chat analysis too — choose `'XLSX'` only when the operator specifically wants a spreadsheet file to download and keep, since XLSX always comes back as a download link only. `get_account_ppc_metrics` / `get_sqp_metrics` / `get_ppc_audit` / the summary tools answer in one call, so prefer those when they cover the question. Reach for a custom report when the operator wants a file to download, a scheduled/automated report, or a report type those tools don't cover. Requires an active seller.
+`create_custom_report` + `get_custom_report` generate a **downloadable CSV/XLSX file**, once (a report cannot be set to repeat from here). Choose `fileType: 'CSV'` when you intend to read the report yourself, since `get_custom_report` reads a finished CSV file back to you as rows when the file could be verified as a single table (some report types are always a link either way), so it can sometimes answer in-chat analysis too — choose `'XLSX'` only when the operator specifically wants a spreadsheet file to download and keep, since XLSX always comes back as a download link only. `get_account_ppc_metrics` / `get_sqp_metrics` / `get_ppc_audit` / the summary tools answer in one call, so prefer those when they cover the question. Reach for a custom report when the operator wants a file to download, once, or a report type those tools don't cover. Requires an active seller.
 
 | Tool | Purpose |
 |------|---------|
-| `create_custom_report` | Queue a downloadable report. 7 `reportType`s (DASHBOARD_METRICS, DASHBOARD_PROFIT_AND_LOSS_METRICS, DST_METRICS, PPC_AUDIT, PPC_SEARCH_TERM, PPC_CAMPAIGNS, SEARCH_QUERY_PERFORMANCE) — each accepts only certain `dateRangeType` values (see [`WIRE_FORMATS.md`](./WIRE_FORMATS.md) matrix). `updateFrequency` is ONCE (default) or DAILY/WEEKLY/MONTHLY/QUARTERLY/YEARLY for a recurring automation. ⚠ Recurring reports CANNOT be listed, edited, or deleted via the API — **CONFIRM the schedule with the operator before creating one.** `marketplaces` are storefront URLs (e.g. `Amazon.com`), NOT marketplace IDs. Returns a `reportId`. |
+| `create_custom_report` | Queue a downloadable report. 7 `reportType`s (DASHBOARD_METRICS, DASHBOARD_PROFIT_AND_LOSS_METRICS, DST_METRICS, PPC_AUDIT, PPC_SEARCH_TERM, PPC_CAMPAIGNS, SEARCH_QUERY_PERFORMANCE) — each accepts only certain `dateRangeType` values (see [`WIRE_FORMATS.md`](./WIRE_FORMATS.md) matrix). Every report is a one-off: repeating reports are not available here, so if the operator asks for one every day, week or month, say so and offer it once (a report on a repeat is a scheduled task in Titan AI chat). `marketplaces` are storefront URLs (e.g. `Amazon.com`), NOT marketplace IDs. Returns a `reportId`. |
 | `get_custom_report` | Single-shot status poll for a `reportId`. `IN_PROGRESS` → call again in ~5-25s (SEARCH_QUERY_PERFORMANCE ~25s; the rest seconds). `DONE` → answer from `rows` (comma-separated; fields containing a comma are double-quoted per RFC 4180, so respect that quoting rather than splitting on every comma; first line is the column header) when present, paging with `rowOffset`/`rowLimit` while `hasMore` is true (cap ~10 pages/turn — narrow the range instead); also hand the operator the `downloadUrl` for the file itself (opens with no Titan Tools login; treat it as private). If `rows` is absent, hand over `downloadUrl` instead. `NO_DATA_AVAILABLE` → suggest a different range/marketplace/ASIN. `FAILED`/`CANCELLED`/`DELETED` → create a new report. |
 
 ### AWD Inventory (US-only — Amazon Warehousing & Distribution)
@@ -379,7 +379,7 @@ Titan frameworks available via `fetch_framework`. Each has its own routing rules
 
 Every response that uses knowledge tools ends with a **Sources** section. This is non-negotiable.
 
-- `titan_lessons`: every result has a `lessonUrl` field. Use it verbatim as the markdown link target. Format: `[Lesson title](lessonUrl) — brief description`. **Platform scope** is Amazon by default — see the Knowledge Tools row above for the `includePlatforms` override; do not "rescue" a Shopify lesson into an Amazon answer.
+- `titan_lessons`: every result has a `lessonUrl` field. Use it verbatim as the markdown link target. Format: `[Lesson title](lessonUrl) — brief description`. Never "rescue" a non-Amazon lesson (Shopify, Walmart, TikTok Shop) into an Amazon answer.
 - `community_feed`: cite by member name + topic. No URL unless one is in the response.
 - `whatsapp_conversations`: cite by group + topic.
 - `fetch_framework`: every response includes a `lessonUrl` field. Cite as a markdown link using that exact URL — `[PPC 3.0 Framework](lessonUrl)`, `[the PLOG training](lessonUrl)`, `[States + Drivers Playbook](lessonUrl)`. Put how it was applied after the link. Never construct or guess the URL — use the verbatim `lessonUrl` from the tool response. For PPC tactical claims, cross-check against `"PPC 3.0"` if `titan_lessons` returned older PPC 1.0 / 2.0 content.
