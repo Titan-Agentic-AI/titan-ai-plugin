@@ -817,9 +817,14 @@ Distinct from the Amazon Ads writes above: these hit the Keyword Relevancy dashb
   "marketplace": "Amazon.com",     // REQUIRED — the storefront written on
   "competitorAsins": ["B0B96J9LL8", "B001VGC0AA"] }  // 1-10, runtime-required
 //  -> { "datasetId": 187798 }      // NUMBER (not the UUID the swagger implies)
+//  -> when Titan Tools holds data for only some competitors (TIT-1019): the create carries those,
+//     and the rest are then added one at a time:
+//     { "created": true, "datasetId": 192099, "name": "...", "competitorCount": 9,
+//       "competitors": { "added": [...], "sentInCreate": [...], "alreadyPresent": [], "refused": [{ "asin": "B0GM2T8P1S", "reason": "Failed to update dataset." }] },
+//       "note": "..." }
 //  -> when upstream errors but this call made the dataset anyway (TIT-1006):
 //     { "created": true, "datasetId": 192065, "name": "...", "competitorCount": 9,
-//       "competitors": { "added": [...], "alreadyPresent": [], "refused": [{ "asin": "B0GM2T8P1S", "reason": "..." }] },
+//       "competitors": { "added": [...], "alreadyPresent": [], "refused": [{ "asin": "B0GM2T8P1S", "code": "...", "reason": "..." }] },
 //       "createError": "Product ... already exists!", "note": "..." }
 
 // propose_add_relevancy_dataset_asins  /  propose_remove_relevancy_dataset_asins
@@ -830,7 +835,7 @@ Distinct from the Amazon Ads writes above: these hit the Keyword Relevancy dashb
 //  -> { "success": true }
 //  -> add, after upstream refused the batch (TIT-1006):
 //     { "success": true, "sentOneAtATime": true, "added": [...], "alreadyPresent": [...],
-//       "refused": [{ "asin": "B0GM2T8P1S", "reason": "No data found for ASIN B0GM2T8P1S. ..." }], "note": "..." }
+//       "refused": [{ "asin": "B0GM2T8P1S", "code": "RELEVANCY_ASIN_NO_DATA", "reason": "No data in Titan's keyword relevancy service." }], "note": "..." }
 ```
 
 - **`dataSetId` camelCase quirk**: the read tool (`get_keyword_relevancy`) returns datasets keyed on `datasetId`, but the add/remove write body wants `dataSetId` (capital S). Use the numeric value from `availableDatasets[].datasetId`.

@@ -990,7 +990,8 @@ For "which competitors should I track for <ASIN>?" / "set up relevancy tracking 
    has one may be refused with RELEVANCY_DATASET_EXISTS, so use it instead.
 4. get_keyword_relevancy({ asin, dataset:{ id: <new datasetId> } }) — the new dataset
    is queryable immediately (no processing delay). Analyze relevancy + competitor ranks.
-   If the create errors but returns created: true, the dataset WAS made: report it as
+   If the create returns created: true (it added some competitors after the create,
+   or it errored but made the dataset anyway), the dataset WAS made: report it as
    created and name each competitor in competitors.refused with its own reason: no
    data in Titan's keyword relevancy service, or the dataset already holding its
    maximum number of ASINs (never as invalid).
