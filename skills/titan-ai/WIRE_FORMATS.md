@@ -1,8 +1,8 @@
-# TitanConnect — Wire Format Reference (`propose_*` body shapes)
+# TitanConnect — Wire Format Reference (`write` body shapes)
 
 Verified 2026-04-26 against staging Nexus. Wrong shape = 400 with a misleading error.
 
-## `propose_create_sp_campaign`
+## `create_sponsored_products_campaign`
 
 Budget is doubly-nested. `currencyCode` is NOT accepted (currency comes from the seller's main currency).
 
@@ -20,7 +20,7 @@ Budget is doubly-nested. `currencyCode` is NOT accepted (currency comes from the
 
 **Common mistake:** passing `budget.amount` or `budget.currencyCode`. Nexus rejects with `campaigns.0.budget.budget must not be less than 1`.
 
-## `propose_update_sp_campaign`
+## `update_sponsored_products_campaign`
 
 Pause is the most common use:
 
@@ -34,9 +34,9 @@ To change budget (same shape as create):
 { "campaigns": [{ "campaignId": "12345", "budget": { "budget": 25, "budgetType": "DAILY" } }] }
 ```
 
-For placement bid modifiers, do **NOT** use this tool — use `propose_update_sp_campaign_placement_modifiers` (below). It carries the read-after-write verification baked in.
+For placement bid modifiers, do **NOT** use this tool — use `update_sponsored_products_campaign_placement_modifiers` (below). It carries the read-after-write verification baked in.
 
-## `propose_update_sp_campaign_placement_modifiers`
+## `update_sponsored_products_campaign_placement_modifiers`
 
 Re-enabled 2026-05-07. Single-campaign target. Full upstream `dynamicBidding` shape — `strategy` is REQUIRED by Amazon (`@IsNotEmpty()` on the upstream Nexus DTO), `placementBidding[]` is optional.
 
@@ -82,7 +82,7 @@ Body shape:
 | `ARCHIVED_NOT_EDITABLE` | Campaign is ARCHIVED — Amazon won't accept placement-modifier writes on archived campaigns | Do not retry. Archiving is permanent, so this campaign can no longer be changed; tell the member |
 | `WRITE_VERIFICATION_FAILED` | Nexus returned 200 but the post-read does not reflect the requested change | Check Seller Central; forensics in `action_logs.errorMessage` (JSON with `requested` / `observed` / `mismatches`) |
 
-## `propose_create_sp_campaign_neg_keyword`
+## `create_sponsored_products_campaign_negative_keyword`
 
 Success items carry `campaignNegativeKeywordId` (NOT `keywordId`).
 
@@ -98,7 +98,7 @@ Success items carry `campaignNegativeKeywordId` (NOT `keywordId`).
 
 `matchType` is `"NEGATIVE_EXACT"` or `"NEGATIVE_PHRASE"`.
 
-## `propose_create_sp_ad_group_neg_keyword`
+## `create_sponsored_products_ad_group_negative_keyword`
 
 Success items carry `keywordId`. Body uses `adGroupId` instead of `campaignId`:
 
@@ -112,7 +112,7 @@ Success items carry `keywordId`. Body uses `adGroupId` instead of `campaignId`:
 }
 ```
 
-## `propose_create_sp_keyword`
+## `create_sponsored_products_keyword`
 
 Promote keywords to a specific match type:
 
@@ -130,7 +130,7 @@ Promote keywords to a specific match type:
 
 `matchType` is `"EXACT"`, `"PHRASE"`, or `"BROAD"`.
 
-## `propose_create_sp_ad_group`
+## `create_sponsored_products_ad_group`
 
 ```json
 {
@@ -143,7 +143,7 @@ Promote keywords to a specific match type:
 }
 ```
 
-## `propose_create_sp_target`
+## `create_sponsored_products_target`
 
 **Required fields**: `campaignId`, `adGroupId`, `expression`, `expressionType`,
 `state`. Every expression needs a **non-empty `value`** — the ASIN for
@@ -166,7 +166,7 @@ For product / category targets:
 }
 ```
 
-## `propose_update_sp_target`
+## `update_sponsored_products_target`
 
 State or bid update:
 
@@ -174,7 +174,7 @@ State or bid update:
 { "targets": [{ "targetId": "T1", "state": "PAUSED" }] }
 ```
 
-## `propose_create_sp_product_ad`
+## `create_sponsored_products_product_ad`
 
 **Required fields**: `campaignId`, `adGroupId`, `state`, AND exactly one of `asin` OR `sku` (not both).
 
@@ -206,7 +206,7 @@ State or bid update:
 
 **Never send both `asin` and `sku` in the same item** — Amazon Ads API rejects redundant identifiers. Send the one that matches how the listing is configured. If unsure, ASIN works for the majority of cases.
 
-## `propose_create_sp_portfolio` / `propose_update_sp_portfolio`
+## `create_sponsored_products_portfolio` / `update_sponsored_products_portfolio`
 
 ```json
 {
@@ -220,15 +220,15 @@ State or bid update:
 
 Note: portfolio budget uses `amount + policy`, NOT the campaign-level `budget.budget + budgetType` shape. This is one of the few tools where the spec deviates.
 
-## `propose_update_sb_campaign` / `propose_update_sd_campaign`
+## `update_sponsored_brands_campaign` / `update_sponsored_display_campaign`
 
 ```json
 { "campaigns": [{ "campaignId": "...", "state": "PAUSED" }] }
 ```
 
-`propose_update_sd_campaign` dry-run echoes the actual `campaignId` (not `dry-run-0`).
+`update_sponsored_display_campaign` dry-run echoes the actual `campaignId` (not `dry-run-0`).
 
-## `propose_update_sp_ad_group` (NEW 2026-05-01)
+## `update_sponsored_products_ad_group` (NEW 2026-05-01)
 
 UPPERCASE state. Pause / change defaultBid / change name. Wrapped multi-status response under `adGroups`.
 
@@ -236,7 +236,7 @@ UPPERCASE state. Pause / change defaultBid / change name. Wrapped multi-status r
 { "adGroups": [{ "adGroupId": "67890", "state": "PAUSED" }] }
 ```
 
-## `propose_update_sp_keyword` (NEW 2026-05-01 — un-stubbed)
+## `update_sponsored_products_keyword` (NEW 2026-05-01 — un-stubbed)
 
 UPPERCASE state. Pause / change bid.
 
@@ -244,7 +244,7 @@ UPPERCASE state. Pause / change bid.
 { "keywords": [{ "keywordId": "K1", "state": "PAUSED" }] }
 ```
 
-## `propose_update_sp_product_ad` (NEW 2026-05-01)
+## `update_sponsored_products_product_ad` (NEW 2026-05-01)
 
 UPPERCASE state. Wrapped multi-status response under `productAds`.
 
@@ -252,7 +252,7 @@ UPPERCASE state. Wrapped multi-status response under `productAds`.
 { "productAds": [{ "adId": "A1", "state": "PAUSED" }] }
 ```
 
-## `propose_update_sb_ad_group` / `propose_update_sb_ad` (NEW 2026-05-01)
+## `update_sponsored_brands_ad_group` / `update_sponsored_brands_ad` (NEW 2026-05-01)
 
 UPPERCASE state. Wrapped multi-status response.
 
@@ -261,7 +261,7 @@ UPPERCASE state. Wrapped multi-status response.
 { "ads":      [{ "adId":      "A1",    "state": "PAUSED" }] }
 ```
 
-## `propose_update_sb_keyword` (NEW 2026-05-01 — lowercase state)
+## `update_sponsored_brands_keyword` (NEW 2026-05-01 — lowercase state)
 
 ⚠️  **lowercase** state values: `enabled`/`paused`/`archived`. Items require **both** `keywordId` AND parent `adGroupId`+`campaignId` (per upstream SB contract).
 
@@ -276,7 +276,7 @@ UPPERCASE state. Wrapped multi-status response.
 }
 ```
 
-## `propose_update_sd_campaign` (FIXED 2026-05-02 — lowercase state)
+## `update_sponsored_display_campaign` (FIXED 2026-05-02 — lowercase state)
 
 ⚠️  **lowercase** state — earlier wrapper sent UPPERCASE incorrectly. No `startDate` on update (rejected by API).
 
@@ -284,7 +284,7 @@ UPPERCASE state. Wrapped multi-status response.
 { "campaigns": [{ "campaignId": "...", "state": "paused" }] }
 ```
 
-## `propose_update_sd_ad_group` / `propose_update_sd_product_ad` / `propose_update_sd_target` (lowercase state, flat-array response)
+## `update_sponsored_display_ad_group` / `update_sponsored_display_product_ad` / `update_sponsored_display_target` (lowercase state, flat-array response)
 
 ⚠️  **lowercase** state values: `enabled`/`paused`/`archived`. Response is a **flat array**, not the wrapped `{ adGroups: { success, error } }` shape — `parseMultiStatus` branches on whether the response is an array. The wrapper handles both shapes; you (the LLM) just see the normalized `{ success, error }` envelope.
 
@@ -294,7 +294,7 @@ UPPERCASE state. Wrapped multi-status response.
 { "targets":    [{ "targetId":  "T1",    "state": "paused", "bid": 1.5 }] }
 ```
 
-## `propose_update_sb_target` (NEW 2026-05-02 — lowercase state, requires parent IDs)
+## `update_sponsored_brands_target` (NEW 2026-05-02 — lowercase state, requires parent IDs)
 
 ⚠️  **lowercase** state. Each item must include the `targetId` AND its parent `adGroupId` + `campaignId`.
 
@@ -309,7 +309,7 @@ UPPERCASE state. Wrapped multi-status response.
 }
 ```
 
-## `propose_create_sb_ad_group_neg_keyword` (NEW 2026-05-02 — camelCase matchType)
+## `create_sponsored_brands_ad_group_negative_keyword` (NEW 2026-05-02 — camelCase matchType)
 
 ⚠️  `matchType` is **camelCase** for SB: `negativeExact` | `negativePhrase`. DIFFERENT from SP's UPPERCASE `NEGATIVE_EXACT`. No `state` field.
 
@@ -324,7 +324,7 @@ UPPERCASE state. Wrapped multi-status response.
 }
 ```
 
-## `propose_update_sp_campaign_neg_keyword` (NEW 2026-05-05)
+## `update_sponsored_products_campaign_negative_keyword` (NEW 2026-05-05)
 
 State-only update. UPPERCASE state (`ENABLED`/`PAUSED`). Wrapper key matches the create
 counterpart (`campaignNegativeKeywords`); success-id is `campaignNegativeKeywordId`.
@@ -339,7 +339,7 @@ counterpart (`campaignNegativeKeywords`); success-id is `campaignNegativeKeyword
 }
 ```
 
-## `propose_update_sp_ad_group_neg_keyword` (NEW 2026-05-05)
+## `update_sponsored_products_ad_group_negative_keyword` (NEW 2026-05-05)
 
 State-only update. UPPERCASE state (`ENABLED`/`PAUSED`). Wrapper key `negativeKeywords`. ⚠️
 Response success-id is **`negativeKeywordId`**, NOT `keywordId` — verified
@@ -347,7 +347,7 @@ empirically 2026-05-05 against Brendan's account.
 
 ```json
 // Shape verified 2026-05-05 against Brendan's account (dry-run). ARCHIVED is refused
-// here since TIT-887: archive with propose_archive_sp_ad_group_neg_keyword.
+// here since TIT-887: archive with archive_sponsored_products_ad_group_negative_keyword.
 {
   "negativeKeywords": [{
     "keywordId": "12345678901234",
@@ -356,7 +356,7 @@ empirically 2026-05-05 against Brendan's account.
 }
 ```
 
-## `propose_update_sb_ad_group_neg_keyword` (NEW 2026-05-05 — lowercase state, requires parent IDs)
+## `update_sponsored_brands_ad_group_negative_keyword` (NEW 2026-05-05 — lowercase state, requires parent IDs)
 
 ⚠️  **lowercase** state for SB. Each item must include `keywordId` AND its
 parent `adGroupId` + `campaignId`. Response is flat-array (same shape as SB
@@ -374,7 +374,7 @@ keyword UPDATE).
 }
 ```
 
-## `propose_create_sp_campaign_neg_target` (NEW 2026-05-05 — campaign-level ASIN/brand block)
+## `create_sponsored_products_campaign_negative_target` (NEW 2026-05-05 — campaign-level ASIN/brand block)
 
 ⚠️  Wrapper key is `campaignNegativeTargetingClauses` (long-form). Expression
 types are UPPERCASE_SNAKE; per-item field is `expression` (singular). State
@@ -395,7 +395,7 @@ must be `"ENABLED"` (omit to default). Response success-id is the long-form
 }
 ```
 
-## `propose_update_sp_campaign_neg_target` (NEW 2026-05-05 — state-only)
+## `update_sponsored_products_campaign_negative_target` (NEW 2026-05-05 — state-only)
 
 State-only update. UPPERCASE state (`ENABLED`/`PAUSED`). Wrapper key matches the create
 counterpart; success-id is the long-form `campaignNegativeTargetingClauseId`.
@@ -410,7 +410,7 @@ counterpart; success-id is the long-form `campaignNegativeTargetingClauseId`.
 }
 ```
 
-## `propose_create_sp_ad_group_neg_target` (NEW 2026-05-05 — ad-group-level ASIN/brand block)
+## `create_sponsored_products_ad_group_negative_target` (NEW 2026-05-05 — ad-group-level ASIN/brand block)
 
 ⚠️  Wrapper key is `negativeTargetingClauses` (different from the campaign-level tool!).
 Expression types are UPPERCASE_SNAKE; per-item field is `expression` (singular).
@@ -428,13 +428,13 @@ State must be `"ENABLED"`. Response success-id is the **short-form `targetId`**.
 }
 ```
 
-## `propose_update_sp_ad_group_neg_target` (NEW 2026-05-05 — state-only)
+## `update_sponsored_products_ad_group_negative_target` (NEW 2026-05-05 — state-only)
 
 State-only update. UPPERCASE state (`ENABLED`/`PAUSED`).
 
 ```json
 // Shape verified 2026-05-05 against Brendan's account (dry-run). ARCHIVED is refused
-// here since TIT-887: archive with propose_archive_sp_ad_group_neg_target.
+// here since TIT-887: archive with archive_sponsored_products_ad_group_negative_target.
 {
   "negativeTargetingClauses": [{
     "targetId": "12345678901234",
@@ -443,7 +443,7 @@ State-only update. UPPERCASE state (`ENABLED`/`PAUSED`).
 }
 ```
 
-## `propose_create_sb_ad_group_neg_target` (NEW 2026-05-05 — camelCase, expressions PLURAL, no state)
+## `create_sponsored_brands_ad_group_negative_target` (NEW 2026-05-05 — camelCase, expressions PLURAL, no state)
 
 ⚠️  Two simultaneous quirks vs SP:
 1. **camelCase** expression types: `asinSameAs` / `asinBrandSameAs` (DIFFERENT from SP's UPPERCASE_SNAKE).
@@ -466,7 +466,7 @@ multi-status shape.
 }
 ```
 
-## `propose_update_sb_ad_group_neg_target` (NEW 2026-05-05 — lowercase state, requires parent adGroupId)
+## `update_sponsored_brands_ad_group_negative_target` (NEW 2026-05-05 — lowercase state, requires parent adGroupId)
 
 ⚠️  **lowercase** state for SB. Each item must include `targetId` AND its
 parent `adGroupId`. Response uses
@@ -484,7 +484,7 @@ by the wrapper.
 }
 ```
 
-## `propose_archive_*` (NEW 2026-09-26, PERMANENT)
+## `archive_*` (NEW 2026-09-26, PERMANENT)
 
 Archiving is its own write on every SP entity and on SB campaigns: Amazon refuses `state: "ARCHIVED"` on those updates. Each archive tool takes the SAME items key and id field as the entity's update tool, and nothing else per item. The server sends upstream a flat id list in item order, so each result's `index` is the index of the item you sent.
 
@@ -494,52 +494,52 @@ Archiving is its own write on every SP entity and on SB campaigns: Amazon refuse
 
 | Tool | Items key | Per-item field | Max per call | success id |
 |------|-----------|----------------|--------------|------------|
-| `propose_archive_sp_campaign` | `campaigns` | **`campaignId`** | 1000 | `campaignId` |
-| `propose_archive_sp_campaign_neg_keyword` | `campaignNegativeKeywords` | **`keywordId`** | 1000 | `campaignNegativeKeywordId` |
-| `propose_archive_sp_campaign_neg_target` | `campaignNegativeTargetingClauses` | **`targetId`** | 1000 | `campaignNegativeTargetingClauseId` |
-| `propose_archive_sp_ad_group` | `adGroups` | **`adGroupId`** | 1000 | `adGroupId` |
-| `propose_archive_sp_keyword` | `keywords` | **`keywordId`** | 1000 | `keywordId` |
-| `propose_archive_sp_ad_group_neg_keyword` | `negativeKeywords` | **`keywordId`** | 1000 | `negativeKeywordId` |
-| `propose_archive_sp_target` | `targets` | **`targetId`** | 1000 | `targetId` |
-| `propose_archive_sp_ad_group_neg_target` | `negativeTargetingClauses` | **`targetId`** | 1000 | `targetId` |
-| `propose_archive_sp_product_ad` | `productAds` | **`adId`** | 1000 | `adId` |
-| `propose_archive_sb_campaign` | `campaigns` | **`campaignId`** | **10** | `campaignId` |
+| `archive_sponsored_products_campaign` | `campaigns` | **`campaignId`** | 1000 | `campaignId` |
+| `archive_sponsored_products_campaign_negative_keyword` | `campaignNegativeKeywords` | **`keywordId`** | 1000 | `campaignNegativeKeywordId` |
+| `archive_sponsored_products_campaign_negative_target` | `campaignNegativeTargetingClauses` | **`targetId`** | 1000 | `campaignNegativeTargetingClauseId` |
+| `archive_sponsored_products_ad_group` | `adGroups` | **`adGroupId`** | 1000 | `adGroupId` |
+| `archive_sponsored_products_keyword` | `keywords` | **`keywordId`** | 1000 | `keywordId` |
+| `archive_sponsored_products_ad_group_negative_keyword` | `negativeKeywords` | **`keywordId`** | 1000 | `negativeKeywordId` |
+| `archive_sponsored_products_target` | `targets` | **`targetId`** | 1000 | `targetId` |
+| `archive_sponsored_products_ad_group_negative_target` | `negativeTargetingClauses` | **`targetId`** | 1000 | `targetId` |
+| `archive_sponsored_products_product_ad` | `productAds` | **`adId`** | 1000 | `adId` |
+| `archive_sponsored_brands_campaign` | `campaigns` | **`campaignId`** | **10** | `campaignId` |
 
 An unknown id comes back in `error[]` with `errorType: "entityNotFoundError"` and reason `ENTITY_NOT_FOUND`; the other ids in the batch are still archived. A dry run answers success for every id without looking them up, so a dry-run success does NOT mean the entities exist.
 
 ## Update-body fields per endpoint (allowlist)
 
-For each `propose_update_*` tool, here are exactly the per-item fields the API accepts. Anything outside this list 400s (verified live 2026-05-02). Required fields are bold.
+For each `update_*` tool, here are exactly the per-item fields the API accepts. Anything outside this list 400s (verified live 2026-05-02). Required fields are bold.
 
-The `propose_update_sp_portfolio` row was re-probed on 2026-09-22 (TIT-887) and narrowed: Amazon answers `state: "PAUSED"` with `Member must satisfy enum value set: [ENABLED]`, so that endpoint takes `ENABLED` and nothing else. The other rows were not re-probed.
+The `update_sponsored_products_portfolio` row was re-probed on 2026-09-22 (TIT-887) and narrowed: Amazon answers `state: "PAUSED"` with `Member must satisfy enum value set: [ENABLED]`, so that endpoint takes `ENABLED` and nothing else. The other rows were not re-probed.
 
 | Tool | Per-item fields |
 |------|-----------------|
-| `propose_update_sp_portfolio` | **`portfolioId`**, `name?`, `state?` (**`ENABLED` only**), `budget?` |
-| `propose_update_sp_campaign` | **`campaignId`**, `name?`, `portfolioId?`, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `budget?`, `endDate?` |
-| `propose_update_sp_campaign_placement_modifiers` | **`campaignId`**, **`dynamicBidding.strategy`** (`LEGACY_FOR_SALES`/`AUTO_FOR_SALES`/`MANUAL`), `dynamicBidding.placementBidding[]?` (`{placement, percentage}` — `percentage: 0` removes; merges by key) |
-| `propose_update_sp_ad_group` | **`adGroupId`**, `name?`, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `defaultBid?` |
-| `propose_update_sp_keyword` | **`keywordId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `bid?` |
-| `propose_update_sp_target` | **`targetId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `bid?` (ASIN/category targets only — keyword IDs go through `propose_update_sp_keyword`) |
-| `propose_update_sp_product_ad` | **`adId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
-| `propose_update_sb_campaign` | **`campaignId`**, `name?`, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `budget?`, `endDate?` |
-| `propose_update_sb_ad_group` | **`adGroupId`**, `name?`, `state?` (UPPERCASE 2-value) |
-| `propose_update_sb_ad` | **`adId`**, `state?` (UPPERCASE 2-value) |
-| `propose_update_sb_keyword` | **`keywordId`**, **`adGroupId`**, **`campaignId`**, `state?` (lowercase 3-value), `bid?` |
-| `propose_update_sb_target` | **`targetId`**, **`adGroupId`**, **`campaignId`**, `state?` (lowercase 3-value), `bid?` |
-| `propose_update_sd_campaign` | **`campaignId`**, `name?`, `state?` (lowercase 3-value), `budget?`, `endDate?` |
-| `propose_update_sd_ad_group` | **`adGroupId`**, `name?`, `state?` (lowercase 3-value), `defaultBid?` |
-| `propose_update_sd_product_ad` | **`adId`**, `state?` (lowercase 3-value) |
-| `propose_update_sd_target` | **`targetId`**, `state?` (lowercase 3-value), `bid?` |
-| `propose_update_sp_campaign_neg_keyword` | **`keywordId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
-| `propose_update_sp_ad_group_neg_keyword` | **`keywordId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
-| `propose_update_sb_ad_group_neg_keyword` | **`keywordId`**, **`adGroupId`**, **`campaignId`**, `state?` (lowercase 3-value) |
-| `propose_create_sp_campaign_neg_target` | **`campaignId`**, **`expression[]`** (UPPERCASE_SNAKE types — `ASIN_SAME_AS`/`ASIN_BRAND_SAME_AS`), `state?` (`"ENABLED"` only) |
-| `propose_update_sp_campaign_neg_target` | **`targetId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
-| `propose_create_sp_ad_group_neg_target` | **`campaignId`**, **`adGroupId`**, **`expression[]`** (UPPERCASE_SNAKE types), `state?` (`"ENABLED"` only) |
-| `propose_update_sp_ad_group_neg_target` | **`targetId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
-| `propose_create_sb_ad_group_neg_target` | **`campaignId`**, **`adGroupId`**, **`expressions[]`** (PLURAL; camelCase types — `asinSameAs`/`asinBrandSameAs`). No `state` field. |
-| `propose_update_sb_ad_group_neg_target` | **`targetId`**, **`adGroupId`**, `state?` (lowercase 3-value) |
+| `update_sponsored_products_portfolio` | **`portfolioId`**, `name?`, `state?` (**`ENABLED` only**), `budget?` |
+| `update_sponsored_products_campaign` | **`campaignId`**, `name?`, `portfolioId?`, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `budget?`, `endDate?` |
+| `update_sponsored_products_campaign_placement_modifiers` | **`campaignId`**, **`dynamicBidding.strategy`** (`LEGACY_FOR_SALES`/`AUTO_FOR_SALES`/`MANUAL`), `dynamicBidding.placementBidding[]?` (`{placement, percentage}` — `percentage: 0` removes; merges by key) |
+| `update_sponsored_products_ad_group` | **`adGroupId`**, `name?`, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `defaultBid?` |
+| `update_sponsored_products_keyword` | **`keywordId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `bid?` |
+| `update_sponsored_products_target` | **`targetId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `bid?` (ASIN/category targets only — keyword IDs go through `update_sponsored_products_keyword`) |
+| `update_sponsored_products_product_ad` | **`adId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
+| `update_sponsored_brands_campaign` | **`campaignId`**, `name?`, `state?` (UPPERCASE `ENABLED`/`PAUSED`), `budget?`, `endDate?` |
+| `update_sponsored_brands_ad_group` | **`adGroupId`**, `name?`, `state?` (UPPERCASE 2-value) |
+| `update_sponsored_brands_ad` | **`adId`**, `state?` (UPPERCASE 2-value) |
+| `update_sponsored_brands_keyword` | **`keywordId`**, **`adGroupId`**, **`campaignId`**, `state?` (lowercase 3-value), `bid?` |
+| `update_sponsored_brands_target` | **`targetId`**, **`adGroupId`**, **`campaignId`**, `state?` (lowercase 3-value), `bid?` |
+| `update_sponsored_display_campaign` | **`campaignId`**, `name?`, `state?` (lowercase 3-value), `budget?`, `endDate?` |
+| `update_sponsored_display_ad_group` | **`adGroupId`**, `name?`, `state?` (lowercase 3-value), `defaultBid?` |
+| `update_sponsored_display_product_ad` | **`adId`**, `state?` (lowercase 3-value) |
+| `update_sponsored_display_target` | **`targetId`**, `state?` (lowercase 3-value), `bid?` |
+| `update_sponsored_products_campaign_negative_keyword` | **`keywordId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
+| `update_sponsored_products_ad_group_negative_keyword` | **`keywordId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
+| `update_sponsored_brands_ad_group_negative_keyword` | **`keywordId`**, **`adGroupId`**, **`campaignId`**, `state?` (lowercase 3-value) |
+| `create_sponsored_products_campaign_negative_target` | **`campaignId`**, **`expression[]`** (UPPERCASE_SNAKE types — `ASIN_SAME_AS`/`ASIN_BRAND_SAME_AS`), `state?` (`"ENABLED"` only) |
+| `update_sponsored_products_campaign_negative_target` | **`targetId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
+| `create_sponsored_products_ad_group_negative_target` | **`campaignId`**, **`adGroupId`**, **`expression[]`** (UPPERCASE_SNAKE types), `state?` (`"ENABLED"` only) |
+| `update_sponsored_products_ad_group_negative_target` | **`targetId`**, `state?` (UPPERCASE `ENABLED`/`PAUSED`) |
+| `create_sponsored_brands_ad_group_negative_target` | **`campaignId`**, **`adGroupId`**, **`expressions[]`** (PLURAL; camelCase types — `asinSameAs`/`asinBrandSameAs`). No `state` field. |
+| `update_sponsored_brands_ad_group_negative_target` | **`targetId`**, **`adGroupId`**, `state?` (lowercase 3-value) |
 
 ## `get_ppc_ams_metrics` — read-tool wire quirk (Amazon Marketing Stream)
 
@@ -799,10 +799,10 @@ Response:
 
 ## Conventions
 
-- **`currencyCode`** is auto-resolved from the active seller (`mainCurrency`) — omit it from `propose_*` bodies. **`marketplace`** defaults to the active seller's `mainSalesChannel` when omitted; to target a connected non-default marketplace, pass its exact storefront string from `get_marketplaces` (an unconnected value returns `MARKETPLACE_NOT_AVAILABLE`). See ACTIONS.md "Marketplace handling".
+- **`currencyCode`** is auto-resolved from the active seller (`mainCurrency`) — omit it from `write` bodies. **`marketplace`** defaults to the active seller's `mainSalesChannel` when omitted; to target a connected non-default marketplace, pass its exact storefront string from `get_marketplaces` (an unconnected value returns `MARKETPLACE_NOT_AVAILABLE`). See ACTIONS.md "Marketplace handling".
 - **Match-type casing**: SP uses UPPERCASE (`NEGATIVE_EXACT`/`NEGATIVE_PHRASE`); SB uses camelCase (`negativeExact`/`negativePhrase`). Positive variants on SP drop the prefix (`EXACT`/`PHRASE`/`BROAD`).
 - **State casing varies by route** — see the ACTIONS.md "State case quirks" table for the full mapping. Zod rejects mismatches before the network call.
-- **Create-state**: keywords / targets / negative-keywords accept only `"ENABLED"` on create. Campaigns / ad-groups / product-ads accept `ENABLED` or `PAUSED`. To pause after create, use the corresponding `propose_update_*` tool; to archive, use the matching `propose_archive_*` tool (Sponsored Display still archives through its update with `state: archived`). **Portfolios are the exception on both halves**: create takes `ENABLED` only (probed 2026-09-23) and update takes `ENABLED` only (probed 2026-09-22), so a portfolio cannot be created paused, and cannot be paused or archived afterwards either.
+- **Create-state**: keywords / targets / negative-keywords accept only `"ENABLED"` on create. Campaigns / ad-groups / product-ads accept `ENABLED` or `PAUSED`. To pause after create, use the corresponding `update_*` tool; to archive, use the matching `archive_*` tool (Sponsored Display still archives through its update with `state: archived`). **Portfolios are the exception on both halves**: create takes `ENABLED` only (probed 2026-09-23) and update takes `ENABLED` only (probed 2026-09-22), so a portfolio cannot be created paused, and cannot be paused or archived afterwards either.
 - **Budget shape**: campaigns use `budget.budget + budgetType`; portfolios use `budget.amount + policy`.
 - **Update-body fields**: see the "Update-body fields per endpoint" allowlist above. The API 400s on any field outside that list — Zod schemas mirror the swagger.
 
@@ -811,7 +811,7 @@ Response:
 Distinct from the Amazon Ads writes above: these hit the Keyword Relevancy dashboard's API, are NOT multi-status, have NO dry-run and NO delete. `sellerId` is injected from the active seller — omit it. `marketplace` (storefront string) is REQUIRED and is the storefront written on: it is validated against the seller's connected marketplaces and refused with `MARKETPLACE_NOT_AVAILABLE` rather than rerouted. It does NOT read the session pin — but it must AGREE with it, because the relevancy reads do follow the pin (else home) and declare no marketplace of their own. A write the reads could not follow is refused with `MARKETPLACE_NOT_READABLE`; pin the session with `set_active_seller({ storeName, marketplace })` and pass the same value here.
 
 ```jsonc
-// propose_create_relevancy_dataset
+// create_relevancy_dataset
 { "datasetName": "Premium Album — competitors",
   "asin": "B0B3V3791F",            // a seller-OWNED ASIN
   "marketplace": "Amazon.com",     // REQUIRED — the storefront written on
@@ -827,7 +827,7 @@ Distinct from the Amazon Ads writes above: these hit the Keyword Relevancy dashb
 //       "competitors": { "added": [...], "alreadyPresent": [], "refused": [{ "asin": "B0GM2T8P1S", "code": "...", "reason": "..." }] },
 //       "createError": "Product ... already exists!", "note": "..." }
 
-// propose_add_relevancy_dataset_asins  /  propose_remove_relevancy_dataset_asins
+// add_relevancy_dataset_asins  /  remove_relevancy_dataset_asins
 { "dataSetId": 187798,              // camelCase `dataSetId` (capital S) — NOT `datasetId`
   "marketplace": "Amazon.com",      // REQUIRED — the storefront written on
   "asins": ["B001VGC0AA"],          // 1-10
@@ -843,12 +843,12 @@ Distinct from the Amazon Ads writes above: these hit the Keyword Relevancy dashb
 - **No dry-run, no delete**: a created dataset is permanent. Label test datasets; there is no endpoint to remove one.
 
 ```jsonc
-// propose_relevancy_ranking_update  (marketplace required — the one recomputed)
+// update_relevancy_rankings  (marketplace required — the one recomputed)
 { "datasetId": 187821,               // NOTE: datasetId (lowercase s), not dataSetId
   "marketplace": "Amazon.com" }      // REQUIRED — omitting it is rejected before the call
 //  -> { "success": true }           // returns immediately; recompute runs ASYNC
 
-// propose_relevancy_cache_purge  (NO marketplace — even though it is carried
+// purge_relevancy_cache  (NO marketplace — even though it is carried
 //                                  for the other relevancy writes)
 { "datasetId": 187821 }
 //  -> { "success": true }
@@ -859,10 +859,10 @@ Distinct from the Amazon Ads writes above: these hit the Keyword Relevancy dashb
 
 ## Keyword Rank Tracker writes (`/v1/krt/*`, `account:write`)
 
-Distinct from both the Amazon Ads writes and the relevancy writes: these are **partial-success batches** (NOT multi-status), have **NO dry-run**, but are **REVERSIBLE**. `sellerId` is injected from the active seller — omit it. `marketplace` is carried ONLY by `propose_track_keywords` (asin-scoped, US/DE/UK/CA), where it is REQUIRED and is the storefront tracked on — validated against the seller's connected marketplaces, never rerouted, and NOT taken from the session pin. The by-id writes take NO marketplace.
+Distinct from both the Amazon Ads writes and the relevancy writes: these are **partial-success batches** (NOT multi-status), have **NO dry-run**, but are **REVERSIBLE**. `sellerId` is injected from the active seller — omit it. `marketplace` is carried ONLY by `track_keywords` (asin-scoped, US/DE/UK/CA), where it is REQUIRED and is the storefront tracked on — validated against the seller's connected marketplaces, never rerouted, and NOT taken from the session pin. The by-id writes take NO marketplace.
 
 ```jsonc
-// propose_track_keywords  (asin-scoped — marketplace required, US/DE/UK/CA only)
+// track_keywords  (asin-scoped — marketplace required, US/DE/UK/CA only)
 { "asin": "B0D1NMX2BS",
   "marketplace": "Amazon.com",                       // REQUIRED — the storefront tracked on
   "phrases": ["travel towel", "quick dry towel"] }   // 1-500
@@ -872,32 +872,32 @@ Distinct from both the Amazon Ads writes and the relevancy writes: these are **p
 //  NOTE: items[].key is the PHRASE, NOT the new keywordRankTrackerId. Re-call
 //  get_keyword_ranks (search by phrase) to resolve the id before labeling/tagging.
 
-// propose_untrack_keywords  (by-id — NO marketplace)
+// untrack_keywords  (by-id — NO marketplace)
 { "keywordRankTrackerIds": [1287188, 1287189] }       // 1-500
 //  -> { "items": [ { "key": "1287188", "status": "SUCCESS" } ], "summary": {…} }
 
-// propose_set_keyword_label  (PATCH — by-id)
+// set_keyword_label  (PATCH — by-id)
 { "keywordRankTrackerIds": [1287188], "labelId": 46 } //  labelId: null CLEARS the label
 //  -> { "items": [ { "key": "1287188", "status": "SUCCESS" } ], "summary": {…} }
 
-// propose_add_keyword_tag  (by-id)
+// add_keyword_tag  (by-id)
 { "keywordRankTrackerIds": [1287188], "tag": "launch-q3" }  // ≤120 chars; creates if new
 
-// propose_remove_keyword_tags  (by-id — tagId, NOT keywordRankTrackerId)
+// remove_keyword_tags  (by-id — tagId, NOT keywordRankTrackerId)
 { "tagIds": [34930] }                                  // tagId from a row's tags[].tagId
 ```
 
-- **Partial-success envelope**: `{ items:[{key,status,error?}], summary:{succeeded,skipped,failed} }`. `propose_track_keywords` status ∈ `SUCCESS | ALREADY_TRACKED | ERROR`; the rest ∈ `SUCCESS | ERROR`. Do NOT `parseMultiStatus`.
+- **Partial-success envelope**: `{ items:[{key,status,error?}], summary:{succeeded,skipped,failed} }`. `track_keywords` status ∈ `SUCCESS | ALREADY_TRACKED | ERROR`; the rest ∈ `SUCCESS | ERROR`. Do NOT `parseMultiStatus`.
 - **`items[].key` semantics**: track → the phrase; untrack/label/tag → the `keywordRankTrackerId`; remove-tags → the `tagId`.
-- **`propose_set_keyword_label` is a PATCH** and `labelId: null` CLEARS the label (reversible).
-- **Marketplace asymmetry**: only `propose_track_keywords` carries `marketplace`, and it is required and honoured. Sending `marketplace` on a by-id write is rejected.
+- **`set_keyword_label` is a PATCH** and `labelId: null` CLEARS the label (reversible).
+- **Marketplace asymmetry**: only `track_keywords` carries `marketplace`, and it is required and honoured. Sending `marketplace` on a by-id write is rejected.
 
 ## Keyword comment writes (`/v1/krt/comments`, `account:write`)
 
 SINGLE-ITEM (NOT partial-success batches), REVERSIBLE (add ↔ remove), no dry-run, NO marketplace. `sellerId` injected from the active seller. A foreign/unknown `keywordRankTrackerId`/`commentId` returns an upstream **404** (the NestJS `{message,error,statusCode}` envelope) — never an empty success.
 
 ```jsonc
-// propose_add_keyword_comment  (POST /v1/krt/comments)
+// add_keyword_comment  (POST /v1/krt/comments)
 { "keywordRankTrackerId": 1029389,
   "commentDate": "2026-06-19",       // YYYY-MM-DD — the event date the note marks
   "commentText": "Price drop" }
@@ -906,11 +906,11 @@ SINGLE-ITEM (NOT partial-success batches), REVERSIBLE (add ↔ remove), no dry-r
 //                    "createdAt": "…", "updatedAt": "…" },
 //       "count": 1 }                 // active comments on the keyword after insert
 
-// propose_edit_keyword_comment  (PATCH /v1/krt/comments — TEXT ONLY)
+// edit_keyword_comment  (PATCH /v1/krt/comments — TEXT ONLY)
 { "commentId": 32939, "commentText": "Updated note" }   // NO commentDate
 //  -> { "comment": { "commentId": 32939, …, "updatedAt": "…" } }  // updatedAt advances
 
-// propose_remove_keyword_comment  (POST /v1/krt/comments/remove)
+// remove_keyword_comment  (POST /v1/krt/comments/remove)
 { "commentId": 32939 }
 //  -> { "success": true }
 ```
@@ -968,7 +968,7 @@ Reads — no approval. `sellerId` injected; segments are asin-scoped and marketp
 Distinct from the Amazon Ads writes: these change Titan Tools' Compass inventory planning, have **NO dry-run** and **recompute nothing**. `sellerId` is injected from the active seller; there is no `marketplace` field.
 
 ```jsonc
-// propose_save_compass_suppliers  (1-200; ATOMIC, one invalid row writes nothing)
+// save_compass_suppliers  (1-200; ATOMIC, one invalid row writes nothing)
 { "suppliers": [
     { "supplierName": "Anhui Fabrics",           // no supplierId -> CREATE (name required)
       "leadTime": 30, "freightTime": 35, "bufferTime": 7,   // whole days
@@ -980,11 +980,11 @@ Distinct from the Amazon Ads writes: these change Titan Tools' Compass inventory
 //                      { "index": 1, "action": "updated", "supplier": { ... } } ],
 //       "summary": { ... }, "recalculationNotice": "..." }
 
-// propose_delete_compass_supplier  (ONE supplier, no restore)
+// delete_compass_supplier  (ONE supplier, no restore)
 { "supplierId": 412 }
 //  -> { "supplierId": 412, "deleted": true, "linkedProducts": ..., "recalculationNotice": "..." }
 
-// propose_update_compass_product_configs  (1-200; PARTIAL SUCCESS)
+// update_compass_product_configurations  (1-200; PARTIAL SUCCESS)
 { "products": [
     { "salesChannel": "Amazon.com", "sku": "CANDLE-VOTIVE-24",   // exactly as on a get_compass_product_configs row
       "supplierId": 431,                                          // relink only, there is no null

@@ -1,6 +1,6 @@
 # TitanConnect — Specialized Workflows
 
-These are sub-patterns within the [Knowledge-First Workflow](./SKILL.md#knowledge-first-workflow). Every workflow below pulls knowledge tools FIRST or in parallel — pure-data flows are not allowed under the source-of-truth principle.
+These are task-specific patterns within the [Knowledge-First Workflow](./SKILL.md#knowledge-first-workflow). Run only the steps needed for the user's request. Knowledge tracks below apply only when the user requests Titan guidance or a Titan framework analysis. Data-only requests skip every knowledge step and require no Sources section. Cite retrieved content whenever it supports an answer.
 
 ## Workflow 0: Account Setup (multiple Titan Tools accounts)
 
@@ -45,7 +45,7 @@ DATA TRACK:
 3. get_account_ppc_metrics (30 days)         → advertising overview
 4. get_marketplaces + get_brands             → store context
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 5. titan_lessons      (query: "account health" or "getting started")
 6. community_feed     (query: relevant to any issues spotted)
 
@@ -59,7 +59,7 @@ Use when the user wants a brand-new Sponsored Products campaign (campaign → ad
 group → product ad(s) → keywords/targets → optional placement bids).
 
 There is **no single "build campaign" tool** and no way to collapse this into one
-call. Each entity is a separate `propose_*` call, and each downstream call
+call. Each entity is a separate `write` call, and each downstream call
 needs an ID that only comes back in the previous call's `success[]` — so the
 calls are a forced serial chain, not a bundle. Set expectations up front on
 the WORK, not on approvals you cannot promise, e.g. *"This is a 5-step build:
@@ -68,7 +68,7 @@ applications ask the user before each call and some never ask at all, so do not
 tell them how many prompts to expect. Do **not** suggest "Always Allow".
 
 ```
-KNOWLEDGE TRACK (first, mandatory):
+KNOWLEDGE TRACK (only when Titan strategy is requested):
 - titan_lessons (campaign structure / single-keyword campaign / etc.)
   + fetch_framework("ppc_3_0") for the build rationale. Cite it.
 
@@ -77,29 +77,31 @@ PRE-FLIGHT:
   are active BEFORE any write. Establish context if missing.
 
 DATA TRACK (sequential — each step feeds the next; batch items WITHIN a step):
-1. propose_create_sp_campaign({ campaigns: [ ... ] })
+1. create_sponsored_products_campaign({ campaigns: [ ... ] })
    → read the new campaignId from success[0].
-2. propose_create_sp_ad_group({ adGroups: [{ campaignId, name, defaultBid, state }] })
+2. create_sponsored_products_ad_group({ adGroups: [{ campaignId, name, defaultBid, state }] })
    → read the new adGroupId from success[0].
 3. Product ad(s) + keywords/targets — each needs campaignId + adGroupId. Put all
    items of one kind in ONE call (= ONE call each):
-   - propose_create_sp_product_ad({ productAds: [{ campaignId, adGroupId, sku|asin, state }] })   (max 500/call)
-   - propose_create_sp_keyword({ keywords: [{ campaignId, adGroupId, keywordText, matchType, bid?, state:"ENABLED" }, ...] })   (max 500/call — ALL keywords in one call)
-   - (or propose_create_sp_target for product/category targets — max 100/call)
-4. (optional) propose_update_sp_campaign_placement_modifiers — needs the
+   - create_sponsored_products_product_ad({ productAds: [{ campaignId, adGroupId, sku|asin, state }] })   (max 500/call)
+   - create_sponsored_products_keyword({ keywords: [{ campaignId, adGroupId, keywordText, matchType, bid?, state:"ENABLED" }, ...] })   (max 500/call — ALL keywords in one call)
+   - (or create_sponsored_products_target for product/category targets — max 100/call)
+4. (optional) update_sponsored_products_campaign_placement_modifiers — needs the
    campaign's biddingStrategy; source it from search_for_ppc_campaigns({campaignIds:[id]})
    first (see Workflow 9b). strategy is REQUIRED.
 
 PER STEP:
 - Inspect the multi-status error[] — empty error[] is the only success. But if
-  success is the boolean false (error "WRITE_ALL_ITEMS_FAILED"), no item landed
+  success is the boolean false (error "WRITE_ALL_ITEMS_FAILED"), no item has a confirmed success
   and error is a code string, not a list: read the message, which names the key
   the per-item rows moved to. On a
-  partial failure, narrate per-item and retry ONLY the failed items.
+  partial failure, narrate per-item. UNKNOWN items may have applied; verify them before retrying.
+  Retry confirmed refusals only when the user authorizes another attempt.
 - Never fabricate campaignId / adGroupId — use only this turn's success[].
   Create with state:"ENABLED" (pause afterward if the user wants it dark).
 
-→ Close with a plain-prose summary of what was created + a Sources section.
+→ Summarize confirmed results, refusals, simulations and unknown outcomes.
+  Include sources only when knowledge content supports the answer.
 ```
 
 ## Workflow 2: Comprehensive PPC Audit
@@ -140,13 +142,14 @@ DATA TRACK:
 3. get_ppc_change_history (narrow with campaignIds, levels, dateRange)
    → context for any flagged campaigns.
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 4. titan_lessons     (query: "PPC optimization" or topic specific to flagged areas)
 5. community_feed    (query: "ACoS reduction" or relevant topic)
-6. fetch_framework("ppc_3_0")  (always — canonical for PPC tactics)
+6. fetch_framework("ppc_3_0")  (when the user requests Titan PPC guidance)
 
 → Report: health score, top optimizations, campaigns to pause, negatives
-  to add — all grounded in Titan strategies, with a Sources section.
+  to add, when the user requests those recommendations. Use Titan strategies
+  and a Sources section only when the user requests Titan guidance.
   If the user uploaded the xlsx, cite specific audit-sheet findings
   alongside the synthetic data.
 ```
@@ -163,19 +166,19 @@ DATA TRACK:
 4. get_product_ppc_metrics (REQUIRED: pass asins=[<top product ASINs>]) → advertising efficiency
 5. search_for_products → look up specific ASINs if needed
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 6. titan_lessons   (query: "product optimization" or relevant topic)
 7. community_feed  (query: relevant to portfolio findings)
 
 → Report: portfolio health, concentration risk, organic vs paid ratio —
-  with Titan-backed recommendations and a Sources section.
+  add Titan-backed recommendations and sources only when requested.
 ```
 
 ## Workflow 7: Bulk Pause / Cleanup (writes — REAL MONEY)
 
 For pausing or archiving many entities at once. Per-tool caps match Nexus's
 empirical limits — 100 for SP/SB/SD structure writes, 500 for SP item-level
-creates, 1000 for SP item-level updates (see each `propose_*` tool's
+creates, 1000 for SP item-level updates (see each `write` tool's
 description for its specific cap). Bundle pause/cleanup writes per turn —
 chain or bundle as needed.
 
@@ -188,38 +191,38 @@ DATA TRACK:
    - Wasteful product ads: get_ppc_product_ads({adGroupIds:[id]})
    - Stale ad groups:      get_ppc_ad_groups({campaignIds:[id], status:'enabled'})
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 3. titan_lessons      (query: "wasted spend" or "campaign cleanup")
 4. fetch_framework("ppc_3_0")  (Phase-1 cleanup tactics)
 
 WRITES (bundle in one response when natural; narrate the whole batch first):
 5. SP pauses:
-   - propose_update_sp_campaign({campaigns:[{campaignId, state:'PAUSED'}]})
-   - propose_update_sp_ad_group({adGroups:[{adGroupId, state:'PAUSED'}]})
-   - propose_update_sp_keyword({keywords:[{keywordId, state:'PAUSED'}]})
-   - propose_update_sp_target({targets:[{targetId, state:'PAUSED'}]})
-   - propose_update_sp_product_ad({productAds:[{adId, state:'PAUSED'}]})
+   - update_sponsored_products_campaign({campaigns:[{campaignId, state:'PAUSED'}]})
+   - update_sponsored_products_ad_group({adGroups:[{adGroupId, state:'PAUSED'}]})
+   - update_sponsored_products_keyword({keywords:[{keywordId, state:'PAUSED'}]})
+   - update_sponsored_products_target({targets:[{targetId, state:'PAUSED'}]})
+   - update_sponsored_products_product_ad({productAds:[{adId, state:'PAUSED'}]})
 6. SB pauses (UPPERCASE state for campaigns/ad-groups/ads; lowercase for keywords/targets):
-   - propose_update_sb_campaign({campaigns:[{campaignId, state:'PAUSED'}]})
-   - propose_update_sb_ad_group({adGroups:[{adGroupId, state:'PAUSED'}]})
-   - propose_update_sb_ad({ads:[{adId, state:'PAUSED'}]})
-   - propose_update_sb_keyword({keywords:[{keywordId, adGroupId, campaignId, state:'paused'}]})
-   - propose_update_sb_target({targets:[{targetId, adGroupId, campaignId, state:'paused'}]})
+   - update_sponsored_brands_campaign({campaigns:[{campaignId, state:'PAUSED'}]})
+   - update_sponsored_brands_ad_group({adGroups:[{adGroupId, state:'PAUSED'}]})
+   - update_sponsored_brands_ad({ads:[{adId, state:'PAUSED'}]})
+   - update_sponsored_brands_keyword({keywords:[{keywordId, adGroupId, campaignId, state:'paused'}]})
+   - update_sponsored_brands_target({targets:[{targetId, adGroupId, campaignId, state:'paused'}]})
 7. SD pauses (lowercase state everywhere):
-   - propose_update_sd_campaign({campaigns:[{campaignId, state:'paused'}]})
-   - propose_update_sd_ad_group({adGroups:[{adGroupId, state:'paused'}]})
-   - propose_update_sd_product_ad({productAds:[{adId, state:'paused'}]})
-   - propose_update_sd_target({targets:[{targetId, state:'paused'}]})
+   - update_sponsored_display_campaign({campaigns:[{campaignId, state:'paused'}]})
+   - update_sponsored_display_ad_group({adGroups:[{adGroupId, state:'paused'}]})
+   - update_sponsored_display_product_ad({productAds:[{adId, state:'paused'}]})
+   - update_sponsored_display_target({targets:[{targetId, state:'paused'}]})
 8. ARCHIVE only when the member explicitly asks for it. It is PERMANENT (no
    unarchive), so offer the pauses above first. Each SP entity and SB
    campaigns have a dedicated tool, keyed exactly like its update tool;
    `state:'ARCHIVED'` on an SP or SB-campaign update is refused:
-   - propose_archive_sp_campaign({campaigns:[{campaignId}]})        // max 1000
-   - propose_archive_sp_ad_group({adGroups:[{adGroupId}]})
-   - propose_archive_sp_keyword({keywords:[{keywordId}]})
-   - propose_archive_sp_target({targets:[{targetId}]})
-   - propose_archive_sp_product_ad({productAds:[{adId}]})
-   - propose_archive_sb_campaign({campaigns:[{campaignId}]})        // max 10!
+   - archive_sponsored_products_campaign({campaigns:[{campaignId}]})        // max 1000
+   - archive_sponsored_products_ad_group({adGroups:[{adGroupId}]})
+   - archive_sponsored_products_keyword({keywords:[{keywordId}]})
+   - archive_sponsored_products_target({targets:[{targetId}]})
+   - archive_sponsored_products_product_ad({productAds:[{adId}]})
+   - archive_sponsored_brands_campaign({campaigns:[{campaignId}]})        // max 10!
    Portfolios cannot be archived. SD still archives with state:'archived'.
 
 → Acknowledge what you're about to do, then proceed. Inspect multi-status
@@ -246,7 +249,7 @@ DATA TRACK:
      tell the user the campaign-level list could not be checked and that a 6a
      write may duplicate an existing negative.
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 4. titan_lessons   (query: "negative keywords")
 5. fetch_framework("ppc_3_0")  (Phase 2 — Keyword Domination covers neg-kw strategy)
 
@@ -255,15 +258,15 @@ DEFAULT: ad-group-level (6b/6c) unless the user explicitly asks to block the
 term across the whole campaign. "in [the] campaign" = where the keyword lives,
 not a request for campaign-scope.
 6a. SP campaign-level (block term across all ad groups in a campaign):
-    propose_create_sp_campaign_neg_keyword({negativeKeywords:[{
+    create_sponsored_products_campaign_negative_keyword({negativeKeywords:[{
       campaignId, keywordText, matchType:'NEGATIVE_EXACT'  // UPPERCASE
     }]})
 6b. SP ad-group-level (block term in one specific ad group):
-    propose_create_sp_ad_group_neg_keyword({negativeKeywords:[{
+    create_sponsored_products_ad_group_negative_keyword({negativeKeywords:[{
       campaignId, adGroupId, keywordText, matchType:'NEGATIVE_EXACT'
     }]})
 6c. SB ad-group-level (NEW 2026-05-02 — DIFFERENT casing!):
-    propose_create_sb_ad_group_neg_keyword({negativeKeywords:[{
+    create_sponsored_brands_ad_group_negative_keyword({negativeKeywords:[{
       campaignId, adGroupId, keywordText, matchType:'negativeExact'  // camelCase!
     }]})
     Note: SB does NOT have campaign-level neg-kw create. Negative-keyword
@@ -277,16 +280,16 @@ REMEDIATION — pause / un-pause / archive existing neg-keywords (NEW 2026-05-05
    Use the ad-group list for steps 9 and 10, and the campaign-level list for step 8.
    Where get_live_negative_keywords is not registered, step 8 is only actionable
    for a campaignNegativeKeywordId the user supplies.
-8. SP campaign-level: propose_update_sp_campaign_neg_keyword({campaignNegativeKeywords:[{
+8. SP campaign-level: update_sponsored_products_campaign_negative_keyword({campaignNegativeKeywords:[{
      keywordId, state:'PAUSED'   // UPPERCASE
    }]})
-   To archive (PERMANENT) instead: propose_archive_sp_campaign_neg_keyword
+   To archive (PERMANENT) instead: archive_sponsored_products_campaign_negative_keyword
    ({campaignNegativeKeywords:[{keywordId}]}); ad-group level is
-   propose_archive_sp_ad_group_neg_keyword({negativeKeywords:[{keywordId}]}).
-9. SP ad-group-level: propose_update_sp_ad_group_neg_keyword({negativeKeywords:[{
+   archive_sponsored_products_ad_group_negative_keyword({negativeKeywords:[{keywordId}]}).
+9. SP ad-group-level: update_sponsored_products_ad_group_negative_keyword({negativeKeywords:[{
      keywordId, state:'PAUSED'   // UPPERCASE; success-id is `negativeKeywordId`
    }]})
-10. SB ad-group-level: propose_update_sb_ad_group_neg_keyword({negativeKeywords:[{
+10. SB ad-group-level: update_sponsored_brands_ad_group_negative_keyword({negativeKeywords:[{
       keywordId, adGroupId, campaignId, state:'paused'   // lowercase!
     }]})
 
@@ -305,18 +308,18 @@ DATA TRACK:
 3. get_sp_bid_recommendations(...) → suggested bids for keywords/targets
    (Live API read; p50 ≈ 40s; render a "calculating…" UI)
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 4. titan_lessons      (query: "bid optimization")
 5. fetch_framework("ppc_3_0")  (canonical bid-laddering rules)
 
 WRITES — use the right tool for each entity type and product type:
-6. SP keyword bid:    propose_update_sp_keyword({keywords:[{keywordId, bid:N}]})
-7. SP target bid:     propose_update_sp_target({targets:[{targetId, bid:N}]})  // ASIN/category targets only
-8. SP ad-group default bid: propose_update_sp_ad_group({adGroups:[{adGroupId, defaultBid:N}]})
-9. SB keyword bid:    propose_update_sb_keyword({keywords:[{keywordId, adGroupId, campaignId, bid:N}]})  // lowercase state if also setting state
-10. SB target bid:    propose_update_sb_target({targets:[{targetId, adGroupId, campaignId, bid:N}]})
-11. SD ad-group default bid: propose_update_sd_ad_group({adGroups:[{adGroupId, defaultBid:N, state:'enabled'}]})  // lowercase
-12. SD target bid:    propose_update_sd_target({targets:[{targetId, bid:N}]})  // lowercase state if also setting state
+6. SP keyword bid:    update_sponsored_products_keyword({keywords:[{keywordId, bid:N}]})
+7. SP target bid:     update_sponsored_products_target({targets:[{targetId, bid:N}]})  // ASIN/category targets only
+8. SP ad-group default bid: update_sponsored_products_ad_group({adGroups:[{adGroupId, defaultBid:N}]})
+9. SB keyword bid:    update_sponsored_brands_keyword({keywords:[{keywordId, adGroupId, campaignId, bid:N}]})  // lowercase state if also setting state
+10. SB target bid:    update_sponsored_brands_target({targets:[{targetId, adGroupId, campaignId, bid:N}]})
+11. SD ad-group default bid: update_sponsored_display_ad_group({adGroups:[{adGroupId, defaultBid:N, state:'enabled'}]})  // lowercase
+12. SD target bid:    update_sponsored_display_target({targets:[{targetId, bid:N}]})  // lowercase state if also setting state
 
 NOTE: SB ad-group does NOT have a `defaultBid` — that field is rejected by the API on
 SB. Use bid changes at the keyword/target level instead.
@@ -329,7 +332,7 @@ SB. Use bid changes at the keyword/target level instead.
 Triggered by: a member asking "boost / drop / clear my Top-of-Search modifier", "set my placement bids", or a placement-metrics audit showing TOS conversion is much better/worse than ROS.
 
 ```
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 1. titan_lessons      (query: "placement modifiers" or "TOS bid adjustment")
 2. fetch_framework("ppc_3_0")  (placement-bid laddering — TOS vs PP vs ROS rules)
 
@@ -342,7 +345,7 @@ DATA TRACK:
    skew for the past N days before changing the modifier.
 
 WRITE — single-campaign target via the dedicated tool:
-6. propose_update_sp_campaign_placement_modifiers({
+6. update_sponsored_products_campaign_placement_modifiers({
      campaignId,
      dynamicBidding: {
        strategy: '<existing biddingStrategy from step 4>',
@@ -378,7 +381,7 @@ DATA TRACK:
    - get_ppc_search_terms_metrics → high-spend / low-conversion competitor ASINs
    - take an explicit list of competitor ASINs / brands from the seller
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 3. titan_lessons   (query: "competitor targeting" or "brand exclusion")
 4. fetch_framework("ppc_3_0")   (Phase 2 — Defense covers neg-target strategy)
 
@@ -395,25 +398,25 @@ NARRATE FIRST — IN PLAIN ENGLISH:
 
 WRITES:
 7a. SP campaign-level (block ASIN/brand across an entire SP campaign):
-    propose_create_sp_campaign_neg_target({campaignNegativeTargetingClauses:[{
+    create_sponsored_products_campaign_negative_target({campaignNegativeTargetingClauses:[{
       campaignId,
       expression: [{ type: 'ASIN_SAME_AS', value: 'B0XXXXXXXX' }],  // UPPERCASE_SNAKE; SINGULAR field
       state: 'ENABLED'
     }]})  // max 500/call
 7b. SP ad-group-level (block in one specific ad group only):
-    propose_create_sp_ad_group_neg_target({negativeTargetingClauses:[{
+    create_sponsored_products_ad_group_negative_target({negativeTargetingClauses:[{
       campaignId, adGroupId,
       expression: [{ type: 'ASIN_SAME_AS', value: 'B0XXXXXXXX' }],
       state: 'ENABLED'
     }]})  // max 500/call
 7c. SB ad-group-level — DIFFERENT shape:
-    propose_create_sb_ad_group_neg_target({negativeTargets:[{
+    create_sponsored_brands_ad_group_negative_target({negativeTargets:[{
       campaignId, adGroupId,
       expressions: [{ type: 'asinSameAs', value: 'B0XXXXXXXX' }]    // PLURAL field! camelCase types! No state field!
     }]})  // max 100/call
 
 8. After the call returns, inspect the multi-status `error[]`. Empty error[] is the only
-   success. If `success` is the boolean `false` (`WRITE_ALL_ITEMS_FAILED`), no item landed
+   success. If `success` is the boolean `false` (`WRITE_ALL_ITEMS_FAILED`), no item has a confirmed success
    and `error` is a code string: read the `message`, which names where the rows moved.
    Note the success-id field per tool:
    - SP campaign-level → success.campaignNegativeTargetingClauseId (long-form)
@@ -421,16 +424,16 @@ WRITES:
    - SB ad-group-level → success.targetId
 
 REMEDIATION — pause / un-pause / archive existing neg-targets:
-9. SP campaign: propose_update_sp_campaign_neg_target({campaignNegativeTargetingClauses:[{
+9. SP campaign: update_sponsored_products_campaign_negative_target({campaignNegativeTargetingClauses:[{
      targetId, state: 'PAUSED'   // UPPERCASE
    }]})
-   To archive (PERMANENT) instead: propose_archive_sp_campaign_neg_target
+   To archive (PERMANENT) instead: archive_sponsored_products_campaign_negative_target
    ({campaignNegativeTargetingClauses:[{targetId}]}); ad-group level is
-   propose_archive_sp_ad_group_neg_target({negativeTargetingClauses:[{targetId}]}).
-10. SP ad-group: propose_update_sp_ad_group_neg_target({negativeTargetingClauses:[{
+   archive_sponsored_products_ad_group_negative_target({negativeTargetingClauses:[{targetId}]}).
+10. SP ad-group: update_sponsored_products_ad_group_negative_target({negativeTargetingClauses:[{
       targetId, state: 'PAUSED'   // UPPERCASE
     }]})
-11. SB ad-group: propose_update_sb_ad_group_neg_target({negativeTargets:[{
+11. SB ad-group: update_sponsored_brands_ad_group_negative_target({negativeTargets:[{
       targetId, adGroupId, state: 'archived'   // lowercase!
     }]})
 
@@ -448,7 +451,7 @@ REMEDIATION — pause / un-pause / archive existing neg-targets:
 4. fetch_framework        → applicable frameworks; pick from { "plog", "ppc_3_0", "states_and_drivers" } based on topic
 
 → Synthesize: key takeaways, real-world examples, peer precedent,
-  actionable steps. Sources section is mandatory even here.
+  actionable steps. Include sources for any knowledge claims.
 ```
 
 ## Workflow 5: Dual-Track Analysis (Data + Knowledge)
@@ -463,7 +466,7 @@ DATA TRACK:
 4. get_products_summary                       → identify key products
 5. get_account_ppc_metrics_by_campaign        → campaign performance
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 6. titan_lessons   → strategies relevant to the account's situation
 7. community_feed  → similar seller experiences
 8. fetch_framework → applicable frameworks (PPC 3.0 for tactics, States + Drivers for posture, PLOG for established-product focus)
@@ -494,7 +497,7 @@ DATA TRACK:
 5. Cross-check with get_ppc_targets + get_ppc_negative_keywords
    for paid-coverage gaps
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 6. titan_lessons   (query: "keyword research" / "SQP analysis")
 7. community_feed  (query: "search query performance")
 
@@ -526,7 +529,7 @@ DATA TRACK:
    so it will NOT surface the exact day(s) the cap was hit. The
    `outOfBudget` boolean is the source of truth for whether-it-happened.
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 5. titan_lessons (query: "budget pacing" or "out of budget")
 6. fetch_framework("ppc_3_0")  (Phase 2 — Keyword Domination covers
    budget posture for scale vs hold decisions)
@@ -555,14 +558,14 @@ KNOWLEDGE TRACK:
 | Negative keywords for one campaign | BOTH levels or you will report a false negative. Ad-group level: `get_ppc_negative_keywords({ campaignIds: [id] })` (optionally `{ statuses: ['ENABLED'] }`) — it cannot see campaign-level negatives and returns `total: 0` for a campaign whose negatives are all campaign-level (TIT-382). Campaign level: `get_live_negative_keywords({level:'campaign', campaignIds:[id]})` — the only path to campaign-level negatives. NOT registered on every surface (the OpenClaw plugin and the in-app Titan AI chat do not carry it); if the tool is unavailable, say the campaign-level list could not be checked rather than treating the ad-group result as complete. Always report which levels you checked. |
 | Metrics for ASIN-bidding campaigns only | `get_account_ppc_metrics_by_campaign({ asins: [<ASINs>], …dateRange })` — server-side narrow |
 | Metrics for one campaign type | `get_account_ppc_metrics_by_campaign({ adType: 'SD', …dateRange })` — server-side narrow to SD only |
-| Pause one campaign | `propose_update_sp_campaign({campaigns:[{campaignId, state:'PAUSED'}]})` — UPPERCASE for SP/SB; lowercase for SD |
-| Pause one keyword | `propose_update_sp_keyword({keywords:[{keywordId, state:'PAUSED'}]})` (SP) or `propose_update_sb_keyword({keywords:[{keywordId, adGroupId, campaignId, state:'paused'}]})` (SB lowercase + parent IDs) |
-| Pause one target (NEW 2026-05-02) | SP: `propose_update_sp_target({targets:[{targetId, state:'PAUSED'}]})` (ASIN/category only). SB: `propose_update_sb_target({targets:[{targetId, adGroupId, campaignId, state:'paused'}]})`. SD: `propose_update_sd_target({targets:[{targetId, state:'paused'}]})` |
-| Change one keyword's bid | `propose_update_sp_keyword({keywords:[{keywordId, bid:1.50}]})` (SP) |
-| Add SB ad-group neg-keyword (NEW 2026-05-02) | `propose_create_sb_ad_group_neg_keyword({negativeKeywords:[{campaignId, adGroupId, keywordText, matchType:'negativeExact'}]})` — **camelCase** matchType, different from SP! |
-| Pause an existing neg-keyword (NEW 2026-05-05) | SP campaign: `propose_update_sp_campaign_neg_keyword({campaignNegativeKeywords:[{keywordId, state:'PAUSED'}]})`. SP ad-group: `propose_update_sp_ad_group_neg_keyword(...)`. SB ad-group: `propose_update_sb_ad_group_neg_keyword(...)` (lowercase + parent IDs). |
-| Block competing ASINs / brands from showing alongside my ads (NEW 2026-05-05) | SP campaign-level: `propose_create_sp_campaign_neg_target({campaignNegativeTargetingClauses:[{campaignId, expression:[{type:'ASIN_SAME_AS', value:'B0XXXXXXXX'}], state:'ENABLED'}]})`. SP ad-group: `propose_create_sp_ad_group_neg_target(...)`. SB: `propose_create_sb_ad_group_neg_target({negativeTargets:[{campaignId, adGroupId, expressions:[{type:'asinSameAs', value:'B0XXXXXXXX'}]}]})` — camelCase + PLURAL `expressions`! |
-| Pause an existing neg-target (NEW 2026-05-05) | SP campaign: `propose_update_sp_campaign_neg_target({campaignNegativeTargetingClauses:[{targetId, state:'PAUSED'}]})`. SP ad-group: `propose_update_sp_ad_group_neg_target(...)`. SB: `propose_update_sb_ad_group_neg_target({negativeTargets:[{targetId, adGroupId, state:'paused'}]})` (lowercase + adGroupId). |
+| Pause one campaign | `update_sponsored_products_campaign({campaigns:[{campaignId, state:'PAUSED'}]})` — UPPERCASE for SP/SB; lowercase for SD |
+| Pause one keyword | `update_sponsored_products_keyword({keywords:[{keywordId, state:'PAUSED'}]})` (SP) or `update_sponsored_brands_keyword({keywords:[{keywordId, adGroupId, campaignId, state:'paused'}]})` (SB lowercase + parent IDs) |
+| Pause one target (NEW 2026-05-02) | SP: `update_sponsored_products_target({targets:[{targetId, state:'PAUSED'}]})` (ASIN/category only). SB: `update_sponsored_brands_target({targets:[{targetId, adGroupId, campaignId, state:'paused'}]})`. SD: `update_sponsored_display_target({targets:[{targetId, state:'paused'}]})` |
+| Change one keyword's bid | `update_sponsored_products_keyword({keywords:[{keywordId, bid:1.50}]})` (SP) |
+| Add SB ad-group neg-keyword (NEW 2026-05-02) | `create_sponsored_brands_ad_group_negative_keyword({negativeKeywords:[{campaignId, adGroupId, keywordText, matchType:'negativeExact'}]})` — **camelCase** matchType, different from SP! |
+| Pause an existing neg-keyword (NEW 2026-05-05) | SP campaign: `update_sponsored_products_campaign_negative_keyword({campaignNegativeKeywords:[{keywordId, state:'PAUSED'}]})`. SP ad-group: `update_sponsored_products_ad_group_negative_keyword(...)`. SB ad-group: `update_sponsored_brands_ad_group_negative_keyword(...)` (lowercase + parent IDs). |
+| Block competing ASINs / brands from showing alongside my ads (NEW 2026-05-05) | SP campaign-level: `create_sponsored_products_campaign_negative_target({campaignNegativeTargetingClauses:[{campaignId, expression:[{type:'ASIN_SAME_AS', value:'B0XXXXXXXX'}], state:'ENABLED'}]})`. SP ad-group: `create_sponsored_products_ad_group_negative_target(...)`. SB: `create_sponsored_brands_ad_group_negative_target({negativeTargets:[{campaignId, adGroupId, expressions:[{type:'asinSameAs', value:'B0XXXXXXXX'}]}]})` — camelCase + PLURAL `expressions`! |
+| Pause an existing neg-target (NEW 2026-05-05) | SP campaign: `update_sponsored_products_campaign_negative_target({campaignNegativeTargetingClauses:[{targetId, state:'PAUSED'}]})`. SP ad-group: `update_sponsored_products_ad_group_negative_target(...)`. SB: `update_sponsored_brands_ad_group_negative_target({negativeTargets:[{targetId, adGroupId, state:'paused'}]})` (lowercase + adGroupId). |
 | Budget analysis | `get_ppc_portfolios_metrics` → `get_account_ppc_metrics_by_campaign` → `get_ppc_placements_metrics` |
 | Metrics for specific campaigns | `search_for_ppc_campaigns` (resolve names → IDs) → `get_account_ppc_metrics_by_campaign({ campaignIds: [...] })` direct narrow, no pagination |
 | Pre-generated PPC audit (curated by Titan) | `get_ppc_audit({})` — hand fileUrl to user; for inline analysis, user drags-drops the downloaded xlsx into chat |
@@ -582,8 +585,8 @@ When the user asks about specific campaigns by name (e.g. "how is my Brand Defen
      currencyCode, startDate, endDate,
      campaignIds: [<id1>, <id2>, ...],
    })                                                     → server returns only those campaigns
-3. titan_lessons (knowledge track)
-4. Synthesize with Titan grounding
+3. If Titan guidance is requested, retrieve relevant titan_lessons.
+4. Answer the requested data question; cite any knowledge content used.
 ```
 
 `campaignIds` is server-side filtered (verified 2026-04-30 against upstream). Do NOT fabricate campaign IDs; resolve them via `search_for_ppc_campaigns`, `get_ppc_change_history`, or a previous tool result this turn.
@@ -627,8 +630,8 @@ When the user asks for metrics on enabled / paused / archived campaigns:
      sortBy: "spend", sortDirection: "desc",
      limit: 5,                            ← if user wants top N
    })                                                            → server narrows + sorts
-3. titan_lessons (knowledge track)
-4. Synthesize with Titan grounding
+3. If Titan guidance is requested, retrieve relevant titan_lessons.
+4. Answer the requested data question; cite any knowledge content used.
 ```
 
 Alternative pattern when "top N by spend regardless of status" is acceptable: pull the unfiltered top page first, then verify each top result's status via `search_for_ppc_campaigns({query: name})` lookups and check the returned item's `state` field client-side (the upstream endpoint does not accept a `status` request parameter as of 2026-05-15). Both are valid; the first is cheaper when the status set is small relative to the full account.
@@ -677,16 +680,16 @@ DATA TRACK (do these in this order — they compose into the strategy):
     with page; for movement over time use get_keyword_rank_history by
     keywordRankTrackerId, span ≤ 360 days).
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 5. titan_lessons (query: "keyword research" or relevant)
 6. fetch_framework("ppc_3_0")  (Phase 1 / 2 / 3 keyword strategy)
 
 CROSS-REFERENCE (the synthesis step):
-- Relevant + not tracked = gap to add (propose_track_keywords)
+- Relevant + not tracked = gap to add (track_keywords)
 - Tracked + not ranking (organicRank null) = PPC opportunity
 - Tracked + ranking + low relevancy = candidate to drop
 - Member comments from step 3 outweigh model speculation; a note worth recording →
-  propose_add_keyword_comment (returns a commentId for later edit/remove)
+  add_keyword_comment (returns a commentId for later edit/remove)
 
 → Report: 3-tier list (priority/secondary/parking) with REASONS, sourced
   to the data tool that produced each insight + Titan framework citation.
@@ -715,7 +718,7 @@ DATA TRACK:
    → low-relevance phrases are expected to rank poorly; high-relevance
    phrases ranking poorly are PPC opportunities.
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 5. titan_lessons (query: "rank tracking" / "organic rank")
 6. fetch_framework("ppc_3_0")  (PPC tactics for boosting organic rank)
 
@@ -742,7 +745,7 @@ DATA TRACK:
 4. (optional) get_keyword_rank_history(...) for phrases whose trend matters.
 
 CROSS-REFERENCE:
-- Tracked + low relevancy + not ranking = candidates to remove (propose_untrack_keywords)
+- Tracked + low relevancy + not ranking = candidates to remove (untrack_keywords)
 - Tracked + high relevancy + Amazon's Choice = wins to amplify
 - Stale comments (commentDate > 90 days old) = outdated context
 
@@ -751,12 +754,12 @@ CROSS-REFERENCE:
 ```
 
 **Recompute / refresh a relevancy dataset's rankings:** when the data looks stale,
-`propose_relevancy_ranking_update({ datasetId, marketplace })` — pass the storefront the
+`update_relevancy_rankings({ datasetId, marketplace })` — pass the storefront the
 session is pinned to, since the status poll and the re-reads below follow the pin and take
 no marketplace — triggers a REAL recompute (once
 per 24h, runs async — returns `{success}` immediately). Then poll
 `get_relevancy_ranking_status({ datasetId })` until `{ ongoing: false }` and re-read
-`get_keyword_relevancy` / `get_keyword_families`. `propose_relevancy_cache_purge({
+`get_keyword_relevancy` / `get_keyword_families`. `purge_relevancy_cache({
 datasetId })` (no marketplace) drops cached results to force a fresh read.
 
 **PARENT/CHILD + SIBLINGS:** the tracker (and relevancy) attach to the **PARENT**
@@ -874,7 +877,7 @@ DATA TRACK:
    get_account_ppc_metrics_by_campaign for the same window. Hour-of-day
    on the campaign-level surface is NOT in this upstream round.
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 6. (optional) fetch_framework('ppc_3_0') — AMS gives raw hour-of-day
    data; the operator's tactical response (dayparting, bid modifiers,
    ad-group hibernation) belongs in the Titan playbook layer, not the
@@ -917,13 +920,13 @@ DATA TRACK:
    → NO_DATA_AVAILABLE: suggest a wider range / different marketplace / ASIN.
    → FAILED/CANCELLED/DELETED: create a new report.
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 6. titan_lessons (query: the report's subject, e.g. "profit and loss",
    "search query performance") → the operator still gets a Titan-grounded
    interpretation layer alongside the rows.
 
 → Answer from the rows, name what's in the file and its date range, hand over
-  the download link for the file itself. Sources section is still mandatory.
+  the download link for the file itself. Include sources for any knowledge claims.
 ```
 
 Latency: create is instant; the single poll is seconds (SQP ~25s).
@@ -955,14 +958,14 @@ DATA TRACK:
    truth.
 5. nextToken present? page through it before summarising totals.
 
-KNOWLEDGE TRACK:
+KNOWLEDGE TRACK (only when Titan guidance is requested):
 6. titan_lessons (query: "AWD" / "Amazon Warehousing and Distribution" / "inventory
    placement") for the Titan-grounded interpretation layer when the operator wants
    strategy, not just the numbers.
 
 → Report on-hand (in AWD) vs inbound (en route) vs distributable-to-FBA distinctly;
-  surface distributionIneligibleReasons for SKUs that couldn't replenish. Sources
-  section is still mandatory.
+  surface distributionIneligibleReasons for SKUs that couldn't replenish.
+  Include sources for any knowledge claims.
 ```
 
 Latency: 1-3s per call; replenishment-orders can paginate on large accounts.
@@ -972,7 +975,7 @@ Latency: 1-3s per call; replenishment-orders can paginate on large accounts.
 For "which competitors should I track for <ASIN>?" / "set up relevancy tracking for this product" — when no suitable dataset exists yet.
 
 ```
-0. Knowledge first: titan_lessons (query: "keyword relevancy" / "competitor research")
+0. If Titan strategy is requested: titan_lessons (query: "keyword relevancy" / "competitor research")
    for the Titan lens on relevance + competitor selection.
 1. get_keyword_relevancy({ asin }) — does a dataset already exist? If availableDatasets
    is non-empty, analyze that instead of creating a duplicate. DATASET CHECK: omitting
@@ -984,7 +987,7 @@ For "which competitors should I track for <ASIN>?" / "set up relevancy tracking 
    pages/sorts stay comparable.
 2. Identify 1-10 competitor ASINs (from the user, or search_for_products / the
    product's category). Confirm them with the operator.
-3. propose_create_relevancy_dataset({ datasetName, asin, competitorAsins:[...], marketplace })
+3. create_relevancy_dataset({ datasetName, asin, competitorAsins:[...], marketplace })
    — IMMEDIATE, IRREVERSIBLE (no delete). Narrate it first. Returns numeric datasetId.
    ONLY if step 1 showed no dataset for the ASIN: a create on a product that already
    has one may be refused with RELEVANCY_DATASET_EXISTS, so use it instead.
@@ -995,12 +998,12 @@ For "which competitors should I track for <ASIN>?" / "set up relevancy tracking 
    created and name each competitor in competitors.refused with its own reason: no
    data in Titan's keyword relevancy service, or the dataset already holding its
    maximum number of ASINs (never as invalid).
-5. Refine: propose_add_relevancy_dataset_asins / propose_remove_relevancy_dataset_asins
+5. Refine: add_relevancy_dataset_asins / remove_relevancy_dataset_asins
    ({ dataSetId, asins:[...], marketplace }) to adjust the competitor set, then re-read.
 ```
 
-→ Synthesize through the Titan lens (which phrases are genuinely relevant, where
-  competitors out-rank the seller). Sources section mandatory. Never surface raw
+→ Report the requested phrase and competitor results. Add Titan guidance only
+  when requested. Include sources for any knowledge claims. Never surface raw
   datasetId / correlationId in prose.
 
 Latency: 1-3s per read; writes are immediate. NO dry-run, NO delete — confirm before creating.
@@ -1010,30 +1013,30 @@ Latency: 1-3s per read; writes are immediate. NO dry-run, NO delete — confirm 
 For "track these keywords for <ASIN>", "label/tag my tracked keywords", "where am I ranking and how has it moved". KRT is US/DE/UK/CA only. The writes are REAL/IMMEDIATE but REVERSIBLE (no dry-run). Narrate them first.
 
 ```
-0. Knowledge first: titan_lessons (query: "keyword rank tracking" / "ranking strategy").
+0. If Titan strategy is requested: titan_lessons (query: "keyword rank tracking" / "ranking strategy").
 1. Capacity check (before adding): get_keyword_tracking_limits({ asin }) → confirm
    `remaining` > the number you intend to add.
 2. See what's already tracked: get_keyword_ranks({ asin, search?, sortBy?, page? }).
    Unranked phrases have organicRank/sponsoredRank = null (read isOrganicRanked /
    isSponsoredRanked) — there is NO 301 sentinel.
-3. ADD: propose_track_keywords({ asin, phrases:[...], marketplace }) — narrate first. Partial-success:
+3. ADD: track_keywords({ asin, phrases:[...], marketplace }) — narrate first. Partial-success:
    per-item SUCCESS / ALREADY_TRACKED / ERROR. items[].key echoes the PHRASE, NOT the
    new keywordRankTrackerId.
 4. RESOLVE THE ID (required before labeling/tagging a just-added keyword): re-call
    get_keyword_ranks({ asin, search: "<phrase>" }) and read keywordRankTrackerId from the row.
 5. LABEL / TAG (by keywordRankTrackerId):
-   - get_keyword_labels() → pick a labelId; propose_set_keyword_label({ keywordRankTrackerIds:[id], labelId })
+   - get_keyword_labels() → pick a labelId; set_keyword_label({ keywordRankTrackerIds:[id], labelId })
      (labelId: null clears it).
-   - propose_add_keyword_tag({ keywordRankTrackerIds:[id], tag })  — creates the tag if new.
+   - add_keyword_tag({ keywordRankTrackerIds:[id], tag })  — creates the tag if new.
 6. HISTORY: get_keyword_rank_history({ asin, keywordRankTrackerId, startDate, endDate })
    — span ≤ 360 days. Chart organicRank/sponsoredRank movement + searchFrequencyRank.
-7. UNDO if needed: propose_untrack_keywords({ keywordRankTrackerIds }),
-   propose_remove_keyword_tags({ tagIds })  (tagId from a row's tags[].tagId).
+7. UNDO if needed: untrack_keywords({ keywordRankTrackerIds }),
+   remove_keyword_tags({ tagIds })  (tagId from a row's tags[].tagId).
 ```
 
-→ Synthesize through the Titan lens (relevance before tracking, where the seller
-  ranks vs competitors). Never surface keywordRankTrackerId / tagId / correlationId
-  in user-facing prose — use the phrase / label / tag names. Sources section mandatory.
+→ Report the requested tracking changes or rank results. Add Titan guidance only
+  when requested. Never surface keywordRankTrackerId / tagId / correlationId
+  in user-facing prose — use the phrase / label / tag names. Include sources for any knowledge claims.
 
 Latency: 1-3s per read; writes are immediate. NO dry-run, but every write is reversible.
 
@@ -1050,10 +1053,10 @@ For "show my Compass suppliers", "which SKUs are not set up in Compass", "set th
    and name the SKUs it affects. An update changes all of them; a delete leaves
    them linked to the deleted supplier with its last terms.
 4. WRITE (confirm the exact change first):
-   - propose_save_compass_suppliers({ suppliers:[...] })            — ATOMIC
-   - propose_update_compass_product_configs({ products:[...] })     — partial success,
+   - save_compass_suppliers({ suppliers:[...] })            — ATOMIC
+   - update_compass_product_configurations({ products:[...] })     — partial success,
      read every results[i].status; relink only, never unlink
-   - propose_delete_compass_supplier({ supplierId })                 — no restore
+   - delete_compass_supplier({ supplierId })                 — no restore
 5. Re-read the SKUs or suppliers you changed.
 6. Tell the user Compass has NOT recalculated the forecast, the Demand Plan or the
    Purchase Orders yet, and that they should open Compass and accept the recompute
