@@ -12,11 +12,13 @@ Budget is doubly-nested. `currencyCode` is NOT accepted (currency comes from the
     "name": "...",
     "targetingType": "MANUAL",
     "state": "ENABLED",
-    "startDate": "2026-04-26",
+    "startDate": "YYYY-MM-DD",
     "budget": { "budget": 10, "budgetType": "DAILY" }
   }]
 }
 ```
+
+`startDate` is required and must be today or later in the marketplace's time zone, and the member chooses it. A start date in the past refuses the whole call with `ADS_DATE_IN_PAST` before anything is sent.
 
 **Common mistake:** passing `budget.amount` or `budget.currencyCode`. Nexus rejects with `campaigns.0.budget.budget must not be less than 1`.
 
