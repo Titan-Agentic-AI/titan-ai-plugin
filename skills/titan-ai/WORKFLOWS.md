@@ -909,7 +909,10 @@ DATA TRACK:
    → returns { reportId }.
 5. get_custom_report({ reportId })  — SINGLE poll, the tool does not loop:
    → IN_PROGRESS: say it's generating, call again in ~5-25s
-     (SEARCH_QUERY_PERFORMANCE ~25s; others seconds).
+     (SEARCH_QUERY_PERFORMANCE usually takes about 5 to 10 minutes; others
+     seconds). Poll it at most 3 times in a turn; still building after
+     that: stop, say it takes minutes and that asking again in a few
+     minutes collects it.
    → DONE: answer from `rows` (comma-separated; fields containing a comma are
      double-quoted per RFC 4180, so respect that quoting rather than
      splitting on every comma; first line is the column header)
@@ -919,6 +922,8 @@ DATA TRACK:
      `rows` is absent, hand over downloadUrl instead.
    → NO_DATA_AVAILABLE: suggest a wider range / different marketplace / ASIN.
    → FAILED/CANCELLED/DELETED: create a new report.
+   → NOT_FOUND: no such report for this seller. Don't poll it again; create
+     it once more, then tell the operator if that one is not found either.
 
 KNOWLEDGE TRACK (only when Titan guidance is requested):
 6. titan_lessons (query: the report's subject, e.g. "profit and loss",
@@ -929,7 +934,7 @@ KNOWLEDGE TRACK (only when Titan guidance is requested):
   the download link for the file itself. Include sources for any knowledge claims.
 ```
 
-Latency: create is instant; the single poll is seconds (SQP ~25s).
+Latency: create is instant; the single poll is seconds (SQP usually about 5 to 10 minutes).
 
 ## Workflow 15: AWD stock picture (US-only — Amazon Warehousing & Distribution)
 

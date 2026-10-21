@@ -683,18 +683,21 @@ SQP (weekly — exactly one ASIN + one marketplace):
 
 Body: `{ "reportId": "<from create>" }`. **Single poll** — on `IN_PROGRESS` you re-invoke; the tool does NOT loop internally.
 
-Response `status` ∈ `IN_PROGRESS | DONE | FAILED | CANCELLED | DELETED | NO_DATA_AVAILABLE`; `downloadUrl` is non-null ONLY on `DONE`. On `DONE`, `header` + `rows` (comma-separated; fields containing a comma are double-quoted per RFC 4180, so respect that quoting rather than splitting on every comma; `rows`' first line repeats the column header) plus paging fields `rowOffset`/`rowsReturned`/`totalRows`/`hasMore` are populated whenever the file could be read server-side; `rows` is absent, and only `downloadUrl` is returned, when it could not. Two more fields appear only when true: `bodyTruncated` means the file was too large to read in full, so `totalRows` is a lower bound and narrowing the date range is the only way to see a complete count; `clipped` means one returned row was too wide to fit whole and was cut short, marked inline with `[row clipped]` — treat that row's value as incomplete and use `downloadUrl` if it matters.
+Response `status` ∈ `IN_PROGRESS | DONE | FAILED | CANCELLED | DELETED | NO_DATA_AVAILABLE | NOT_FOUND`; `downloadUrl` is non-null ONLY on `DONE`. On `DONE`, `header` + `rows` (comma-separated; fields containing a comma are double-quoted per RFC 4180, so respect that quoting rather than splitting on every comma; `rows`' first line repeats the column header) plus paging fields `rowOffset`/`rowsReturned`/`totalRows`/`hasMore` are populated whenever the file could be read server-side; `rows` is absent, and only `downloadUrl` is returned, when it could not. Two more fields appear only when true: `bodyTruncated` means the file was too large to read in full, so `totalRows` is a lower bound and narrowing the date range is the only way to see a complete count; `clipped` means one returned row was too wide to fit whole and was cut short, marked inline with `[row clipped]` — treat that row's value as incomplete and use `downloadUrl` if it matters.
 
 | status | meaning | action |
 |---|---|---|
-| IN_PROGRESS | still generating | call again in ~5-25s |
+| IN_PROGRESS | still generating | call again in ~5-25s, at most 3 polls of one `reportId` per turn (SEARCH_QUERY_PERFORMANCE takes minutes) |
 | DONE | ready | answer from `rows` if present; page with `rowOffset` while `hasMore` is true (cap ~10 pages/turn — narrow the range instead of paging further); if `rows` is absent, hand the operator `downloadUrl` instead |
 | NO_DATA_AVAILABLE | no data for the parameters | suggest a different range / marketplace / ASIN |
 | FAILED / CANCELLED / DELETED | terminal | create a new report |
+| NOT_FOUND | Titan Tools holds no such report for this seller | don't poll it again; create it once more, then tell the operator if that one is not found either |
 
 `downloadUrl` = `https://app.titantools.com/reports/download?source=<signed token>` — a **self-authenticating bearer link**: it opens with no Titan Tools login and has no per-link expiry. Treat it as a secret — hand it to the operator, do not post it anywhere public. Reading the rows yourself no longer requires fetching this link; the tool result already carries the rows when they are available.
 
-**Latency**: DASHBOARD / DST / PPC report types reach `DONE` within seconds; `SEARCH_QUERY_PERFORMANCE` ~25s.
+**Latency**: DASHBOARD / DST / PPC report types reach `DONE` within seconds; `SEARCH_QUERY_PERFORMANCE` usually takes about 5 to 10 minutes.
+
+**Not found**: for a `reportId` it does not hold, upstream answers HTTP 200 with an empty body, which `get_custom_report` returns as `status: "NOT_FOUND"`. Do not poll that `reportId` again; create the report once more, and tell the operator if that one is not found either.
 
 **One-off only**: upstream exposes only create + download, and these tools create one-off reports only. A report on a repeat is not available from a connected app; it is a scheduled task in Titan AI chat.
 
