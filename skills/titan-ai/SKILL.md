@@ -142,7 +142,7 @@ For the per-`write` body shapes (campaign create, target update, keyword neg-key
 | `archive_sponsored_brands_campaign` | Archive Sponsored Brands campaigns (PERMANENT, **max 10/call**) (NEW 2026-09-26) |
 | `get_sp_bid_recommendations` | Get suggested bids (no writes — read-only) |
 
-> **Archiving is permanent and has its own tools.** Amazon refuses `state: ARCHIVED` on every SP update and on `update_sponsored_brands_campaign`; use the matching `archive_*` tool, which takes the same items key and id field as the update. There is no unarchive, so offer `state: PAUSED` first. Portfolios cannot be archived.
+> **Archiving is permanent and has its own tools.** Amazon refuses `state: ARCHIVED` on every SP update and on `update_sponsored_brands_campaign`; use the matching `archive_*` tool, which takes the same items key and id field as the update. There is no unarchive, so offer `state: PAUSED` first for anything that spends; a negative keyword or target is the exception, because archiving it lifts its block for good, so pause it instead (ACTIONS.md explains). Portfolios cannot be archived.
 
 > **Note:** `update_sponsored_products_campaign_placement_modifiers` (re-enabled 2026-05-07) sets/changes/removes placement bid modifiers (TOP_OF_SEARCH, PRODUCT_PAGES, REST_OF_SEARCH) on a Sponsored Products campaign. **Strategy is REQUIRED** by Amazon — pass the campaign's current `biddingStrategy` (from `search_for_ppc_campaigns` or `get_account_ppc_metrics_by_campaign`) unless you intend to also change the strategy.
 >
