@@ -483,7 +483,7 @@ SYNTHESIS:
 
 **Caveats — read first:**
 - `searchQueryScore` is a RANK; sort ASC for top queries.
-- `searchQueryVolume` is normalised; do NOT compare to external keyword tools.
+- `searchQueryVolume` is Amazon's weekly search count for the query, averaged across the requested weeks; do NOT compare it to external keyword tools' estimates.
 - Purchase metrics use 24h attribution — low purchase share does NOT mean "doesn't convert". Use cart-add share.
 - Empty results = ambiguous (not enrolled / no data / pre-W15).
 

@@ -65,7 +65,7 @@ Knowledge tools work without an active seller.
 ## SQP (`get_sqp_metrics`) caveats
 
 - `searchQueryScore` is a RANK; sort ASC for top queries.
-- `searchQueryVolume` is normalised — do not compare to Helium 10 / Search Terms report.
+- `searchQueryVolume` is Amazon's weekly search count for the query, averaged across the requested weeks — do not compare it to Helium 10 / Jungle Scout estimates or the Search Terms report.
 - Purchase metrics use 24h attribution — low purchase share does NOT mean "doesn't convert". Use cart-add share instead.
 - Empty results are ambiguous: (a) not enrolled in Brand Analytics, (b) no data for filters, (c) pre-2026-W15. Broaden weeks down to W15 before concluding (a).
 - **Routing — weekly vs quarterly/historical:** `get_sqp_metrics` covers WEEKLY / RECENT SQP only (ISO weeks from 2026-W15 forward). For QUARTERLY or HISTORICAL SQP (older than W15, or a multi-quarter pull) use `create_custom_report({ reportType: 'SEARCH_QUERY_PERFORMANCE' })` — **one PARENT ASIN per report** (don't batch ASINs). If a member asks for last-quarter / YoY SQP and `get_sqp_metrics` returns empty before W15, switch to the report path rather than concluding "no data".
