@@ -1,8 +1,14 @@
 {
   "name": "titan-ai",
-  "version": "2.0.0",
-  "description": "Amazon seller tools for AI agents via Titan Network — PPC, listings, lessons, frameworks",
-  "author": { "name": "Titan Network", "url": "https://titannetwork.com" },
+  "displayName": "Titan AI",
+  "version": "2.1.0",
+  "description": "Amazon seller data, PPC analytics and actions, and Titan Network playbooks in Claude, through Titan AI's MCP server.",
+  "author": { "name": "Titan Network", "email": "support@titannetwork.com", "url": "https://titannetwork.com" },
   "homepage": "https://titanconnect.titannetwork.com",
-  "keywords": ["amazon", "ppc", "seller", "titan-network", "mcp"]
+  "repository": "https://github.com/Titan-Agentic-AI/titan-ai-plugin",
+  "license": "MIT",
+  "keywords": ["amazon", "ppc", "seller", "titan-network", "mcp"],
+  "icon": "./assets/icon.png",
+  "documentationUrl": "https://titanconnect.titannetwork.com/docs",
+  "privacyPolicyUrl": "https://titanconnect.titannetwork.com/privacy"
 }

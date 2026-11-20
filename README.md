@@ -1,54 +1,89 @@
-# Titan AI MCP plugin
+# Titan AI plugin for Claude
 
-Amazon seller tools for AI agents, from Titan Network. Your PPC data, listings,
-alerts, and the Titan knowledge base, available in Claude.ai, Claude Code and
-Claude Cowork.
+Amazon seller tools from Titan Network. The plugin connects Claude to Titan AI's
+MCP server and adds the `titan-ai` skill, which teaches Claude which tool
+answers which question, the exact shape of every write, and how to report a
+result. It works in Claude.ai, Claude Code and Cowork.
 
-Requires a Titan Tools account. Sign-in happens in your browser on first
-connect, over OAuth. There is no API key to copy or paste.
+## Who it is for
+
+Titan Network members with an Amazon seller account linked to Titan Tools. The
+first time Claude connects, you sign in with your Titan account in the browser,
+over OAuth. There is no API key to copy, and no Amazon password or credential is
+ever entered into Claude. Without a linked Amazon account the connection signs
+in but returns no seller data.
 
 ## Install
+
+On Claude.ai, go to Customize, then Plugins, then Add marketplace, and point it
+at `Titan-Agentic-AI/titan-ai-plugin`.
+
+In Claude Code:
 
 ```
 /plugin marketplace add Titan-Agentic-AI/titan-ai-plugin
 /plugin install titan-ai@titan-network
 ```
 
-On Claude.ai, go to Customize, then Plugins, then Add marketplace, and point it
-at this repository.
-
 In Cowork, install it from the plugin library.
 
-Or, for Claude Code, use the one-command installer, which does the same thing
-and signs you in:
+## What you can ask
 
-```
-curl -fsSL https://titanconnect.titannetwork.com/api/install-claude | bash
-```
+- "How are my campaigns doing this month?"
+- "Show my top-selling ASINs and their current inventory."
+- "Which search terms should I add as negatives?"
+- "What does the Titan Network playbook say about launching a product with PPC?"
 
-## Using another MCP client
+## What the plugin contains, and where your data goes
 
-If your client does not take plugins, connect the Titan AI MCP server directly
-and add the skill separately. The
-[setup guides](https://ai.titannetwork.com/docs/connect-a-client) cover both
-steps per client.
+- One remote MCP server, `https://titanconnect.titannetwork.com/api/mcp`,
+  operated by Titan Network. It is the only network destination the plugin
+  declares.
+- One skill, `skills/titan-ai/`, written in Markdown.
 
-## What you get
+No hook, command, agent or local server in this plugin runs on your machine.
+`scripts/validate.mjs` is a check this repository runs in CI; the plugin never
+runs it.
 
-A connection to the Titan AI MCP server at
-`titanconnect.titannetwork.com/api/mcp`, plus the `titan-ai` skill that teaches
-Claude how to use it: which tool answers which question, the wire formats for
-every write, and the rule that answers are grounded in Titan Network material
-rather than general knowledge.
+When Claude calls a Titan AI tool, the call and its arguments go to that
+server. The server reads your Amazon seller data and Titan Tools records for the
+accounts you linked, and returns the result to Claude. We do not receive your
+full conversation, but tool arguments can include text Claude takes from your
+messages. The server keeps a record of each tool call, including its arguments
+and a hash of the result.
 
-Ask things like "how are my campaigns doing", "show my top-selling ASINs", or
-"optimize my PPC spend".
+The [Privacy Policy](https://titanconnect.titannetwork.com/privacy) explains what
+we collect, how long we keep it, who we share it with, and how to end a
+connection.
 
-## These tools spend real money
+## Tools that make changes
 
-Some tools change a live Amazon Ads account. Claude Code prompts you before each
-one. Nothing rolls back automatically, so read each proposal, and keep the Titan
-action tools out of any always-allow list.
+Some tools make live changes:
+
+- Amazon Ads: campaigns, ad groups, keywords, negatives, targets, portfolios,
+  bids, budgets and placement modifiers.
+- Amazon listings: listing content and price.
+- Titan Tools records: tracked keywords, tags and comments, relevancy datasets,
+  alerts, supplier records and product costs.
+
+A change applies when the tool is called, and some changes cannot be undone.
+Setting a product's costs, for example, replaces the cost history you supply for
+that product.
+
+Titan AI's MCP server cannot ask you anything during a call. Whether Claude asks
+you before a write depends on the app and your tool permission settings. The
+skill tells Claude to use a write tool only when you authorize the specific
+change, and to say what it will change before it calls the tool. Read each
+proposed change, and keep the write tools out of any always-allow list.
+
+## Support
+
+Email support@titannetwork.com. Documentation is at
+[titanconnect.titannetwork.com/docs](https://titanconnect.titannetwork.com/docs).
+To report a problem with the plugin itself, open an issue in this repository.
+
+This repository is published from Titan AI's own systems and does not take pull
+requests. See [CONTRIBUTING](CONTRIBUTING.md).
 
 ## Licence
 
@@ -56,26 +91,3 @@ MIT, see [LICENSE](LICENSE).
 
 The licence covers this repository's contents. It does not grant any right to
 the Titan Network or Titan AI names, logos, or other trademarks.
-
-## About Titan AI
-
-Titan AI is the agentic platform Amazon sellers run their business on: seller
-data, PPC analytics and campaign actions, a knowledge base built from what has
-actually worked for Titan Network members, and agents that act on all of it.
-Most of that work happens in Titan AI itself, at
-[ai.titannetwork.com](https://ai.titannetwork.com).
-
-This plugin is one way in. It brings the same tools and the same judgement into
-Claude's ecosystem, so you can stay in Claude Code or Cowork and still work
-against your live account.
-
-The plugin is published from Titan AI's own systems, so it tracks the platform
-and does not take changes here. To request one, or to report a problem, open an
-issue.
-
-## Docs
-
-* [Start here](https://ai.titannetwork.com/docs/overview)
-* [Claude Code setup](https://ai.titannetwork.com/docs/claude-code)
-* [Cowork setup](https://ai.titannetwork.com/docs/cowork)
-* [Other MCP clients](https://ai.titannetwork.com/docs/connect-a-client)
