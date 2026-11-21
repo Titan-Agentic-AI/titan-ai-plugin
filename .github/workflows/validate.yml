@@ -15,12 +15,10 @@ jobs:
         with:
           node-version: '22'
 
-      # Identifiers and required files. Fails on a hand-edit that would break
-      # an already-installed member, which is the failure worth catching here.
-      - name: Structural validation
-        run: node scripts/validate.mjs
-
-      # Anthropic's own manifest check, as the second opinion.
+      # Anthropic's own manifest check. The identifier checks that a mirror-side
+      # script used to run live in the monorepo (scripts/check-identifier-parity
+      # .test.mjs): the plugin directory accepts no script file from an
+      # organization that is not Verified (LOCAL_CODE_FILE_TYPE).
       - name: Claude Code plugin validate
         run: |
           npm install -g @anthropic-ai/claude-code
