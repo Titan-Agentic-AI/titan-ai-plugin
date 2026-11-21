@@ -603,7 +603,7 @@ For each PPC read tool, here are the filters the API accepts. Pass them and the 
 | `get_ppc_portfolios_metrics` | `portfolioNamePattern?`, `sortBy?`, `sortDirection?` |
 | `get_ppc_product_ads_metrics` | `asins?`, `adType?` ('SP'/'SD'/'SBV'), `sortBy?`, `sortDirection?` |
 | `get_ppc_targets_metrics` | `adType?` ('SP'/'SB'/'SBV'/'SD'), `targetIds?`, `campaignIds?`, `adGroupIds?` (all three applied server-side; `campaignIds`/`adGroupIds` verified 2026-07-28, `targetIds` verified 2026-07-30 — a real targetId cut 1112 unfiltered rows to 1), `sortBy?`, `sortDirection?` |
-| `get_ppc_placements_metrics` | **`adType: 'SP'`**, `asins?` (verified 2026-05-14), `campaignIds?` (applied server-side, verified 2026-07-30: baseline TOS clicks 16499 vs 690 filtered on a real campaignId; a bogus id returns 0 rows — narrows the aggregate only, no campaignId in the response), `sortBy?`, `sortDirection?` |
+| `get_ppc_placements_metrics` | **`adType`** (`'SP'`, `'SB'`, `'SBV'`, or a list; `['SB','SBV']` is all Sponsored Brands), `asins?` (verified 2026-05-14), `campaignIds?` (applied server-side, verified 2026-07-30: baseline TOS clicks 16499 vs 690 filtered on a real campaignId; a bogus id returns 0 rows — narrows the aggregate only, no campaignId in the response), `sortBy?`, `sortDirection?` |
 | `get_ppc_search_terms_metrics` | **`adType: 'SP'`**, `campaignIds?` (verified 2026-05-14), `asins?` (verified 2026-05-14), `sortBy?`, `sortDirection?` |
 | `get_product_ppc_metrics` | **`asins`** (non-empty) |
 | `get_product_performance_summary` | **`asins`** (non-empty) |
