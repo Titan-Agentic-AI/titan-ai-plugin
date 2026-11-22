@@ -1,7 +1,6 @@
 ---
 name: titan-ai
 description: Use Titan AI tools for authorized Amazon seller data, PPC actions, keyword research, and requested Titan Network guidance. Data-only requests do not require a knowledge call. Ground claims about Titan training in retrieved sources.
-allowed-tools: mcp__titan-ai__*
 ---
 
 # TitanConnect MCP — Operating Guide

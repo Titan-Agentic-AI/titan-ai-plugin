@@ -41,9 +41,8 @@ In Cowork, install it from the plugin library.
   declares.
 - One skill, `skills/titan-ai/`, written in Markdown.
 
-No hook, command, agent or local server in this plugin runs on your machine.
-`scripts/validate.mjs` is a check this repository runs in CI; the plugin never
-runs it.
+No hook, command, agent, script or local server in this plugin runs on your
+machine.
 
 When Claude calls a Titan AI tool, the call and its arguments go to that
 server. The server reads your Amazon seller data and Titan Tools records for the
