@@ -22,7 +22,7 @@ In Claude Code:
 
 ```
 /plugin marketplace add Titan-Agentic-AI/titan-ai-plugin
-/plugin install titan-ai@titan-network
+/plugin install titan-ai-amazon@titan-network
 ```
 
 In Cowork, install it from the plugin library.
