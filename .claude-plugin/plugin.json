@@ -1,7 +1,7 @@
 {
   "name": "titan-ai",
-  "displayName": "Titan AI",
-  "version": "2.1.2",
+  "displayName": "Titan AI Amazon",
+  "version": "2.1.5",
   "description": "Amazon seller data, PPC analytics and actions, and Titan Network playbooks in Claude, through Titan AI's MCP server.",
   "author": { "name": "Titan Network", "email": "support@titannetwork.com", "url": "https://titannetwork.com" },
   "homepage": "https://titanconnect.titannetwork.com",

@@ -1,4 +1,4 @@
-# Titan AI plugin for Claude
+# Titan AI Amazon plugin for Claude
 
 Amazon seller tools from Titan Network. The plugin connects Claude to Titan AI's
 MCP server and adds the `titan-ai` skill, which teaches Claude which tool
