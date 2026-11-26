@@ -951,11 +951,14 @@ DATA TRACK:
    → 200 with an empty array (inventory:[]/shipments:[]/orders:[]): the seller IS
      AWD-enrolled but has nothing right now. Say "no current AWD stock", NOT "no AWD".
    → AWD_NOT_ENROLLED (403): Titan Tools does not hold the AWD role for this account,
-     OR the account is not AWD-enrolled. The 403 cannot tell the two apart. The role is
+     OR the account is not AWD-enrolled. Amazon's code tells them apart when it sends one
+     (amazonCode Unauthorized = the role, FORBIDDEN = not enrolled); the message then
+     names that cause. The role is
      granted on Amazon's side, so re-running a Titan connection does NOT change it — do
-     not offer a reconnect or a re-authorise as the fix. Have the seller confirm AWD
-     enrolment in Seller Central and contact Titan support to have the role checked. Do
-     NOT report "no AWD inventory".
+     not offer a Titan reconnect as the fix. FORBIDDEN: have the seller confirm AWD
+     enrolment in Seller Central. Unauthorized: have them reauthorize Titan in Seller
+     Central (third-party applications), where the consent screen lists AWD; Titan
+     support if it still fails. Do NOT report "no AWD inventory".
    → AWD_NO_US_CONNECTION (404): no US Selling-Partner connection; AWD is US-only.
 4. Do NOT use the awd*Quantity fields on search_for_products for this — they come from a
    daily AWD snapshot and may be null or stale (null for sellers not enrolled in AWD, and

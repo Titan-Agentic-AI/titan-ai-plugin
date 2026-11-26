@@ -711,7 +711,7 @@ Live SP-API AWD proxies. Read-style tools (read-only). `sellerId` is auto-resolv
 |---|---|---|
 | Enrolled US seller, has data | 200 | `{ inventory: [...] }` / `{ shipments: [...] }` / `{ orders: [...], nextToken? }` |
 | Enrolled US seller, nothing right now | 200 | `{ inventory: [] }` (etc.) — enrolled, no current stock/shipments/orders — **NOT "no AWD"** |
-| AWD role missing OR not AWD-enrolled (indistinguishable) | 403 → `AWD_NOT_ENROLLED` | `{ error: true, code: "AWD_NOT_ENROLLED", message }` — granted on Amazon's side, so a Titan reconnect does not change it; confirm enrolment in Seller Central, then contact Titan support |
+| AWD role missing (Amazon `Unauthorized`) OR not AWD-enrolled (Amazon `FORBIDDEN`) | 403 → `AWD_NOT_ENROLLED` | `{ error: true, code: "AWD_NOT_ENROLLED", amazonCode?, message }`, the message naming the cause when `amazonCode` is set — granted on Amazon's side, so a Titan reconnect does not change it; `FORBIDDEN`: confirm enrolment in Seller Central; `Unauthorized`: reauthorize Titan in Seller Central (third-party applications); then Titan support |
 | No US (Amazon.com) connection | 404 → `AWD_NO_US_CONNECTION` | `{ error: true, code: "AWD_NO_US_CONNECTION", message }` — US-only gating |
 
 Real shapes (probe-verified gomezfit / A20KO674Z5KLVG, 2026-05-30):

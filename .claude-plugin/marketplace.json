@@ -9,7 +9,7 @@
     {
       "name": "titan-ai-amazon",
       "description": "Amazon seller tools via Titan Network. PPC analytics, listings, alerts, lessons, and frameworks. Connects over OAuth, no API key.",
-      "version": "2.2.0",
+      "version": "2.2.2",
       "source": "./"
     }
   ]
